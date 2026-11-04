@@ -11,6 +11,7 @@ wisp: a language for Weight-Space Programming
 usage:
   wisp <program.wisp> [--budget N] [--log FILE]
   wisp <program.wisp> --check
+  wisp test <program.wisp> [--budget N]
 
 options:
   --check       validate syntax without executing the program
@@ -28,6 +29,7 @@ pub fn main_cli() -> ExitCode {
             print!("{USAGE}");
             return ExitCode::SUCCESS;
         }
+        Some("test") => cmd_test(&args[1..]),
         Some("run") => cmd_run(&args[1..]),
         Some("jit") => cmd_jit(&args[1..]),
         Some("check") => cmd_check(&args[1..]),
@@ -78,6 +80,66 @@ fn cmd_program(args: &[String]) -> Result<(), String> {
         return Err(USAGE.into());
     }
     cmd_run(args)
+}
+
+fn cmd_test(args: &[String]) -> Result<(), String> {
+    const HELP: &str = "usage: wisp test <program.wisp> [--budget N]\n\nRuns test_* functions in declaration order with a fresh context per test.\nTop-level statements are not executed. --budget is a per-test limit.\n";
+    if matches!(args, [flag] if flag == "--help" || flag == "-h") {
+        print!("{HELP}");
+        return Ok(());
+    }
+    let (path, budget) = match args {
+        [path] if !path.starts_with('-') => (path, None),
+        [path, flag, value] if !path.starts_with('-') && flag == "--budget" => {
+            let budget = value
+                .parse::<u64>()
+                .map_err(|_| "--budget needs a nonnegative integer")?;
+            (path, Some(budget))
+        }
+        _ => return Err(HELP.into()),
+    };
+    let src = read(path)?;
+    let program = wisp_syntax::parse(&src).map_err(|d| d.render(path, &src))?;
+    let tests = wisp_runtime::testing::discover(&program).map_err(|d| d.render(path, &src))?;
+    if tests.is_empty() {
+        return Err(format!("{path}: no test_* functions found"));
+    }
+    let mut failed = 0;
+    let mut skipped = 0;
+    for test in &tests {
+        let result = wisp_runtime::testing::run(path, &src, &program, test, budget);
+        print!("{}", result.output);
+        if !result.output.is_empty() && !result.output.ends_with('\n') {
+            println!();
+        }
+        if !result.failures.is_empty() {
+            failed += 1;
+            println!("FAIL {}", result.name);
+            for error in result.failures {
+                eprint!("{}", error.render(path, &src));
+            }
+        } else if let Some(reason) = result.skipped {
+            skipped += 1;
+            println!("SKIP {}: {reason}", result.name);
+        } else {
+            println!("PASS {}", result.name);
+        }
+    }
+    let skip_summary = if skipped > 0 {
+        format!(", {skipped} skipped")
+    } else {
+        String::new()
+    };
+    println!(
+        "{} passed, {failed} failed{skip_summary}, {} total",
+        tests.len() - failed - skipped,
+        tests.len()
+    );
+    if failed > 0 {
+        Err(format!("{path}: test suite failed"))
+    } else {
+        Ok(())
+    }
 }
 
 fn cmd_check(args: &[String]) -> Result<(), String> {

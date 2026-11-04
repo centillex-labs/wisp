@@ -1333,6 +1333,9 @@ impl Interp {
     ) -> R<Vec<Value>> {
         match f {
             FuncVal::Named(n) => self.call_named(n, args, nargout, span),
+            FuncVal::TestMethod { context, method } => {
+                crate::testing::call_method(self, context, *method, &args, span)
+            }
             FuncVal::Lambda { params, body, env } => {
                 if args.len() > params.len() {
                     return Err(err(

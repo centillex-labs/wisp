@@ -13,6 +13,7 @@ pub mod io;
 pub mod net;
 pub mod observations;
 pub mod tensor;
+pub mod testing;
 pub mod value;
 
 pub use interp::Interp;

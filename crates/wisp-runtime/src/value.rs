@@ -10,6 +10,10 @@ use wisp_syntax::ast::Expr;
 #[derive(Clone)]
 pub enum FuncVal {
     Named(String),
+    TestMethod {
+        context: Rc<std::cell::RefCell<crate::testing::TestContext>>,
+        method: crate::testing::TestMethod,
+    },
     Lambda {
         params: Rc<Vec<String>>,
         body: Rc<Expr>,

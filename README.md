@@ -127,6 +127,26 @@ Wisp ports of the Experiment 5 networks:
 
 Original example material is CC BY 4.0; Wisp source is MIT licensed.
 
+## Unit tests
+
+Declare tests alongside helper functions:
+
+```wisp
+function test_addition(t)
+    assert(2 + 3 == 5, 'addition should return 5');
+end
+```
+
+```bash
+wisp test examples/unit_tests.wisp --budget 1
+```
+
+The runner discovers `test_*` functions, supplies a context with `t.name` and
+`t.file`, plus `t.fprintf`, `t.error`, `t.fail`, and `t.skip` methods, and reports
+each result. Tests run with fresh interpreter state;
+top-level statements are skipped. Any failure produces a nonzero exit status.
+[Testing rules and examples](docs/testing.md).
+
 ## Build
 
 ```bash
