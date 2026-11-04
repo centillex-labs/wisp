@@ -353,7 +353,7 @@ impl Parser {
                 if p.eat(&Tok::RBracket) {
                     break;
                 }
-                if p.eat(&Tok::Tilde) {
+                if p.eat(&Tok::Ident("_".into())) || p.eat(&Tok::Tilde) {
                     targets.push(None);
                 } else {
                     let e = p.postfix()?;
@@ -965,6 +965,21 @@ mod tests {
         let p = parse("[~, k] = max(s)\nfunction c = land(r, s)\n c = r + s;\nend").unwrap();
         assert_eq!(p.functions.len(), 1);
         assert!(matches!(p.body[0].kind, StmtKind::Multi(_, _)));
+    }
+
+    #[test]
+    fn underscore_discards_outputs_without_changing_named_targets() {
+        let p = parse("[_, _value, _, indices[0]] = outputs()").unwrap();
+        let StmtKind::Multi(targets, _) = &p.body[0].kind else {
+            panic!("expected multi-assignment");
+        };
+        assert_eq!(targets.len(), 4);
+        assert!(targets[0].is_none());
+        assert_eq!(targets[1].as_ref().unwrap().base, "_value");
+        assert!(targets[2].is_none());
+        assert_eq!(targets[3].as_ref().unwrap().base, "indices");
+        assert!(parse("[_.field, x] = outputs()").is_err());
+        assert!(parse("[_[0], x] = outputs()").is_err());
     }
 
     #[test]

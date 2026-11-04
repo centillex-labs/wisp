@@ -74,7 +74,7 @@ energy = sum(D.^2, 0);       // squared norm of each residual-writing column
 [largest, neurons] = maxk(energy, 4);
 
 for j = neurons
-    [~, out] = max(abs(D[:, j]));
+    [_, out] = max(abs(D[:, j]));
     D[out, j] *= 0.5;        // one coefficient per selected neuron, not the whole column
 end
 ```

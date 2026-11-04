@@ -65,7 +65,7 @@ assert(norm(candidate.W1-base.W1)/norm(base.W1) <= 0.5);
 wsave(candidate, 'head_candidate.safetensors', 'budget', 1);
 stored = wload('head_candidate.safetensors');
 after = run(stored, 'repair');
-[~, repaired] = max(after, [], 1);
+[_, repaired] = max(after, [], 1);
 assert(all(repaired == y));
 assert(all((2*y-1).*(after[:,1]-after[:,0]) >= 0.25));
 ```
@@ -75,7 +75,7 @@ assert(all((2*y-1).*(after[:,1]-after[:,0]) >= 0.25));
 ```wisp
 function scores = accuracy(model, items)
     Y = run(model, items);
-    [~, predicted] = max(Y, [], 1);
+    [_, predicted] = max(Y, [], 1);
     expected = mod((0..rows(Y)-1)', 2);
     scores = predicted == expected;
 end
@@ -126,6 +126,19 @@ Wisp ports of the Experiment 5 networks:
 | Asterix | [Source](https://github.com/RikiyaT/lm_understand-logs/blob/main/exp5_write_from_scratch/runs/asterix/reply/answer.md) | [asterix.wisp](examples/asterix.wisp) |
 
 Original example material is CC BY 4.0; Wisp source is MIT licensed.
+
+## Discarding outputs
+
+Use `_` in a multiple-output assignment to ignore a result:
+
+```wisp
+[_, index] = max([3, 9, 4]);
+assert(index == 1);
+```
+
+Discarded outputs still count toward the number of requested results. The call
+runs normally, including observation charges and errors. `~` remains supported
+for compatibility; new programs should use `_`.
 
 ## Unit tests
 
