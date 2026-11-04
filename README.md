@@ -1,6 +1,6 @@
 # Wisp
 
-Wisp is a language for humans and AI agents to perform **Weight Space Programming**. It lets you inspect and edit model weights directly, using assertions to test whether targeted changes improve model behavior.
+Wisp is a language for humans and AI agents to perform **[Weight Space Programming](https://rikiyat.github.io/blog/weight-space-programming/)**. It lets you inspect and edit model weights directly, using assertions to test whether targeted changes improve model behavior.
 
 ## Bonsai examples
 
