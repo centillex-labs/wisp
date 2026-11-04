@@ -1,0 +1,170 @@
+{
+  "schema": 1,
+  "program": "strawberry.wisp",
+  "program_sha256": "5076f10c2b0354b98fcf004a1ecfc0676014b0eaca79d486780b4568251ddd68",
+  "binary_sha256": "44ffdf08e55d69e35b82188f088b31dd2e9954f3eb38ec7db1618b3d5725c479",
+  "model": {
+    "repo": "prism-ml/Bonsai-1.7B-unpacked",
+    "revision": "a7f720bd688d7563714f3118edd97b83d06f0615",
+    "sha256": "cf9a24cbd02e6e257bcfd3177475aaca7f8bd1a63a745441f30d3e40f4313a6b",
+    "acquisition": "Reused the previously downloaded, SHA-verified checkpoint in the native cache. hf_model fetched config/tokenizer on first use; measured run was offline."
+  },
+  "backend": {
+    "implementation": "native Rust Qwen3",
+    "candle": "0.11.1",
+    "tokenizers": "0.23.2",
+    "compute_dtype": "float32",
+    "inference_threads": 4,
+    "chat": "Qwen3 non-thinking single-user"
+  },
+  "generation": {
+    "temperature": 0,
+    "max_new_tokens": 1,
+    "vocabulary_size": 151669,
+    "unrestricted_vocabulary": true
+  },
+  "cases": [
+    {
+      "role": "repair",
+      "prompt": "Return only the number of occurrences of the character r in the string strawberry.",
+      "before": "To",
+      "after": "3",
+      "expected": "3"
+    },
+    {
+      "role": "repair",
+      "prompt": "Count the letter 'r' in 'cherry'. Answer with just the number.",
+      "before": "3",
+      "after": "2",
+      "expected": "2"
+    },
+    {
+      "role": "repair",
+      "prompt": "Count the letter 'r' in 'banana'. Answer with just the number.",
+      "before": "3",
+      "after": "0",
+      "expected": "0"
+    },
+    {
+      "role": "repair",
+      "prompt": "Count the letter 'r' in 'orange'. Answer with just the number.",
+      "before": "3",
+      "after": "1",
+      "expected": "1"
+    },
+    {
+      "role": "zero_drift_control",
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 9 is larger than 4.",
+      "before": "True",
+      "after": "True",
+      "expected": "True"
+    },
+    {
+      "role": "zero_drift_control",
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 4 is larger than 9.",
+      "before": "False",
+      "after": "False",
+      "expected": "False"
+    }
+  ],
+  "fit": {
+    "target_logit_margin": 1,
+    "ridge": 0.0001,
+    "all_six_cases_are_fitting_data": true,
+    "held_out_claim": false,
+    "scope": "targeted output-only repair; not a general counting guarantee"
+  },
+  "edit": {
+    "scope": "output_rows",
+    "token_ids": [
+      15,
+      16,
+      17,
+      18
+    ],
+    "dtype": "float16",
+    "changed_entries": 8168,
+    "loaded_bundle_entries": 8196,
+    "share_of_loaded_bundle": 0.9965836993655441,
+    "relative_four_row_change": 0.13912152965959132,
+    "provenance": "Act",
+    "head_binding": {
+      "model": "wisp-qwen3-nonthinking-v1:cf9a24cbd02e6e257bcfd3177475aaca7f8bd1a63a745441f30d3e40f4313a6b:a9e37c13a2315353ae3fad3f33759e506598cf57b52abeae50d5318b7dd147fb:aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+      "tokens": [
+        15,
+        16,
+        17,
+        18
+      ],
+      "base_sha256": "0c6f0a449d18d42fc471ccca83927a490422bce714a59fc7fc11d3224dc312b1"
+    },
+    "decoder_and_input_embeddings": "unchanged; selected output rows are independent of tied input embeddings"
+  },
+  "artifacts": {
+    "strawberry_base.safetensors": "81b2595c611e2426ef955ee515e115df58bbb158cc95055cc936f5bc22125f9b",
+    "strawberry_head.safetensors": "2bbcb7d3b313103f05bc482089e0f4cdad724ff4eb27c9e99f519f64ea09d32f",
+    "strawberry_head.safetensors.wisp.json": "5d6745a6b255a9035386ea73067a862ea6c6a2ca1a544a95dd8f760544d1773c",
+    "strawberry_head.patch.json": "9e1c70029232a5f0b3090c29fb48e25431d79f5f731f00661e4afb681985a2ba",
+    "strawberry_rebuilt.safetensors": "2bbcb7d3b313103f05bc482089e0f4cdad724ff4eb27c9e99f519f64ea09d32f"
+  },
+  "verification": {
+    "program_exit": 0,
+    "fresh_process_reconstructed_head_outputs": [
+      "3",
+      "2",
+      "0",
+      "1",
+      "True",
+      "False"
+    ],
+    "byte_exact_patch_roundtrip": true,
+    "base_rows_byte_exact_to_checkpoint": true,
+    "base_row_bytes_compared": 16384,
+    "runtime_PATH": "",
+    "runtime_HF_HUB_OFFLINE": "1",
+    "runtime_HF_TOKEN_present": false,
+    "debug_tests_passed": 90,
+    "release_tests_passed": 90,
+    "strict_clippy_passed": true
+  },
+  "measurement": {
+    "wall_seconds": 36.18,
+    "max_rss_kib": 6860568,
+    "logical_passes_this_run": 3,
+    "decoder_executions_this_run": 18,
+    "fresh_reload_logical_passes": 1,
+    "fresh_reload_decoder_executions": 6,
+    "scope": "Per-invocation counters; excludes earlier exploratory probes, development reruns, and unit tests."
+  },
+  "observations": [
+    {
+      "call": "gen",
+      "cost": 1,
+      "used": 1,
+      "left": 2,
+      "at": "strawberry.wisp:15:10",
+      "args": "inline data"
+    },
+    {
+      "call": "capture",
+      "cost": 1,
+      "used": 2,
+      "left": 1,
+      "at": "strawberry.wisp:16:9",
+      "args": "inline data"
+    },
+    {
+      "call": "gen",
+      "cost": 1,
+      "used": 3,
+      "left": 0,
+      "at": "strawberry.wisp:41:9",
+      "args": "inline data"
+    }
+  ],
+  "prompt_exploration": {
+    "native_probe_batches": 3,
+    "decoder_executions": 21,
+    "note": "Some quoted strawberry prompts already produced 3. The selected failing prompt began with To, not 2."
+  }
+}

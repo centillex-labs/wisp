@@ -1,0 +1,516 @@
+{
+  "candidate_sha256": "07385bb3ca96aed8517e5b2e65399fede4d1888d8eeac0b7527a8887202aa6b9",
+  "model_sha256": "cf9a24cbd02e6e257bcfd3177475aaca7f8bd1a63a745441f30d3e40f4313a6b",
+  "task": "constrained next-token False/True classification, NOT free generation",
+  "changed_embedding_entries": 4092,
+  "relative_two_row_change": 0.3934647997921552,
+  "repair_before": 6,
+  "repair_after": 12,
+  "repair_n": 12,
+  "regression_before": 12,
+  "regression_after": 12,
+  "regression_n": 12,
+  "regression_max_margin_drift": 0.0015659332275390625,
+  "confirmation_before": 6,
+  "confirmation_after": 12,
+  "confirmation_n": 12,
+  "paired_gain": 0.5,
+  "paired_se": 0.15075567228888181,
+  "gain_exceeds_2se": true,
+  "tested_upstream_hidden_states_bit_identical": true,
+  "confirmation_baseline": [
+    {
+      "statement": "The word 'strawberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'strawberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.8754463195800781
+    },
+    {
+      "statement": "The word 'strawberries' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'strawberries' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -2.0206527709960938
+    },
+    {
+      "statement": "The word 'raspberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'raspberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.5265579223632812
+    },
+    {
+      "statement": "The word 'raspberries' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'raspberries' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.5152759552001953
+    },
+    {
+      "statement": "The word 'blackberries' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blackberries' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.1250667572021484
+    },
+    {
+      "statement": "The word 'blackberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blackberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.8227157592773438
+    },
+    {
+      "statement": "The word 'blueberries' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blueberries' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.5642261505126953
+    },
+    {
+      "statement": "The word 'blueberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blueberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -2.2561073303222656
+    },
+    {
+      "statement": "The word 'cranberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cranberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.7587337493896484
+    },
+    {
+      "statement": "The word 'cranberries' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cranberries' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.6969470977783203
+    },
+    {
+      "statement": "The word 'cherries' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cherries' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.09112548828125
+    },
+    {
+      "statement": "The word 'cherries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cherries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -1.8477497100830078
+    }
+  ],
+  "confirmation_edited": [
+    {
+      "statement": "The word 'strawberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'strawberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.005401611328125
+    },
+    {
+      "statement": "The word 'strawberries' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'strawberries' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.6257438659667969
+    },
+    {
+      "statement": "The word 'raspberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'raspberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.023960113525390625
+    },
+    {
+      "statement": "The word 'raspberries' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'raspberries' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.6128692626953125
+    },
+    {
+      "statement": "The word 'blackberries' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blackberries' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.05496025085449219
+    },
+    {
+      "statement": "The word 'blackberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blackberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.5719051361083984
+    },
+    {
+      "statement": "The word 'blueberries' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blueberries' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.21855545043945312
+    },
+    {
+      "statement": "The word 'blueberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blueberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.46907997131347656
+    },
+    {
+      "statement": "The word 'cranberries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cranberries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.19530487060546875
+    },
+    {
+      "statement": "The word 'cranberries' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cranberries' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.46545982360839844
+    },
+    {
+      "statement": "The word 'cherries' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cherries' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.4256477355957031
+    },
+    {
+      "statement": "The word 'cherries' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cherries' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.2307872772216797
+    }
+  ],
+  "regression_baseline": [
+    {
+      "statement": "2 > 7",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 2 > 7",
+      "prediction": 0,
+      "margin_true_minus_false": -5.403352737426758
+    },
+    {
+      "statement": "7 > 2",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 7 > 2",
+      "prediction": 1,
+      "margin_true_minus_false": 2.0746936798095703
+    },
+    {
+      "statement": "13 > 21",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 13 > 21",
+      "prediction": 0,
+      "margin_true_minus_false": -5.239484786987305
+    },
+    {
+      "statement": "21 > 13",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 21 > 13",
+      "prediction": 1,
+      "margin_true_minus_false": 2.595033645629883
+    },
+    {
+      "statement": "31 > 42",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 31 > 42",
+      "prediction": 0,
+      "margin_true_minus_false": -5.90533447265625
+    },
+    {
+      "statement": "42 > 31",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 42 > 31",
+      "prediction": 1,
+      "margin_true_minus_false": 3.0689964294433594
+    },
+    {
+      "statement": "58 > 63",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 58 > 63",
+      "prediction": 0,
+      "margin_true_minus_false": -5.524580001831055
+    },
+    {
+      "statement": "63 > 58",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 63 > 58",
+      "prediction": 1,
+      "margin_true_minus_false": 2.452768325805664
+    },
+    {
+      "statement": "75 > 89",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 75 > 89",
+      "prediction": 0,
+      "margin_true_minus_false": -5.692222595214844
+    },
+    {
+      "statement": "89 > 75",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 89 > 75",
+      "prediction": 1,
+      "margin_true_minus_false": 3.347789764404297
+    },
+    {
+      "statement": "104 > 125",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 104 > 125",
+      "prediction": 0,
+      "margin_true_minus_false": -5.17082405090332
+    },
+    {
+      "statement": "125 > 104",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 125 > 104",
+      "prediction": 1,
+      "margin_true_minus_false": 2.188343048095703
+    }
+  ],
+  "regression_edited": [
+    {
+      "statement": "2 > 7",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 2 > 7",
+      "prediction": 0,
+      "margin_true_minus_false": -5.4048309326171875
+    },
+    {
+      "statement": "7 > 2",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 7 > 2",
+      "prediction": 1,
+      "margin_true_minus_false": 2.073396682739258
+    },
+    {
+      "statement": "13 > 21",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 13 > 21",
+      "prediction": 0,
+      "margin_true_minus_false": -5.240989685058594
+    },
+    {
+      "statement": "21 > 13",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 21 > 13",
+      "prediction": 1,
+      "margin_true_minus_false": 2.5937747955322266
+    },
+    {
+      "statement": "31 > 42",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 31 > 42",
+      "prediction": 0,
+      "margin_true_minus_false": -5.906780242919922
+    },
+    {
+      "statement": "42 > 31",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 42 > 31",
+      "prediction": 1,
+      "margin_true_minus_false": 3.0678462982177734
+    },
+    {
+      "statement": "58 > 63",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 58 > 63",
+      "prediction": 0,
+      "margin_true_minus_false": -5.526124954223633
+    },
+    {
+      "statement": "63 > 58",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 63 > 58",
+      "prediction": 1,
+      "margin_true_minus_false": 2.451486587524414
+    },
+    {
+      "statement": "75 > 89",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 75 > 89",
+      "prediction": 0,
+      "margin_true_minus_false": -5.693788528442383
+    },
+    {
+      "statement": "89 > 75",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 89 > 75",
+      "prediction": 1,
+      "margin_true_minus_false": 3.3466129302978516
+    },
+    {
+      "statement": "104 > 125",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 104 > 125",
+      "prediction": 0,
+      "margin_true_minus_false": -5.172319412231445
+    },
+    {
+      "statement": "125 > 104",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: 125 > 104",
+      "prediction": 1,
+      "margin_true_minus_false": 2.187122344970703
+    }
+  ],
+  "repair_edited": [
+    {
+      "statement": "The word 'strawberry' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'strawberry' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.30092620849609375
+    },
+    {
+      "statement": "The word 'strawberry' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'strawberry' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.29875946044921875
+    },
+    {
+      "statement": "The word 'raspberry' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'raspberry' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.3011016845703125
+    },
+    {
+      "statement": "The word 'raspberry' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'raspberry' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.29898643493652344
+    },
+    {
+      "statement": "The word 'blackberry' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blackberry' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.3010883331298828
+    },
+    {
+      "statement": "The word 'blackberry' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blackberry' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.2989063262939453
+    },
+    {
+      "statement": "The word 'blueberry' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blueberry' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.3010711669921875
+    },
+    {
+      "statement": "The word 'blueberry' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'blueberry' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.2988719940185547
+    },
+    {
+      "statement": "The word 'cranberry' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cranberry' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.3011436462402344
+    },
+    {
+      "statement": "The word 'cranberry' contains exactly 3 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cranberry' contains exactly 3 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.29903602600097656
+    },
+    {
+      "statement": "The word 'cherry' contains exactly 1 occurrences of the letter 'r'.",
+      "label": 0,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cherry' contains exactly 1 occurrences of the letter 'r'.",
+      "prediction": 0,
+      "margin_true_minus_false": -0.30103111267089844
+    },
+    {
+      "statement": "The word 'cherry' contains exactly 2 occurrences of the letter 'r'.",
+      "label": 1,
+      "prompt": "Evaluate whether this numerical comparison is correct. Answer with a boolean value only.\nStatement: The word 'cherry' contains exactly 2 occurrences of the letter 'r'.",
+      "prediction": 1,
+      "margin_true_minus_false": 0.298919677734375
+    }
+  ],
+  "wisp_assertions_passed": true,
+  "checks_passed": true,
+  "accounting": {
+    "logs": [
+      {
+        "experiment": "letter_count_repair",
+        "log": "external_observations.jsonl",
+        "cost": 7,
+        "decoder_executions": 84,
+        "events": 7
+      },
+      {
+        "experiment": "letter_count_repair",
+        "log": "rejected_sparse_attempt.jsonl",
+        "cost": 4,
+        "decoder_executions": 0,
+        "events": 4
+      },
+      {
+        "experiment": "letter_count_repair",
+        "log": "wisp_confirmation.jsonl",
+        "cost": 4,
+        "decoder_executions": 0,
+        "events": 6
+      },
+      {
+        "experiment": "letter_count_repair",
+        "log": "wisp_practice_accepted.jsonl",
+        "cost": 6,
+        "decoder_executions": 0,
+        "events": 6
+      },
+      {
+        "experiment": "decimal_repair",
+        "log": "external_observations.jsonl",
+        "cost": 3,
+        "decoder_executions": 60,
+        "events": 3
+      }
+    ],
+    "total_logical_observation_cost": 24,
+    "total_external_decoder_executions": 144
+  },
+  "token_rows": [
+    4049,
+    2514
+  ],
+  "source_rows_verified_against_checkpoint": true,
+  "patch_provenance": "Act",
+  "environment_checked_at_summary": {
+    "torch": "2.15.0+cpu",
+    "transformers": "4.57.6",
+    "numpy": "2.5.4",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.22.2"
+  },
+  "limitations": [
+    "Constrained False/True token classification, not open-ended generation.",
+    "Confirmation uses plural variants of practice words; this is not a broad independent benchmark.",
+    "Two embedding/output rows change by about 39% in norm; untested tasks may regress.",
+    "The edit breaks the original 1-bit block structure in these rows; only the FP16 export was tested.",
+    "FP32 CPU computation was tested; the narrowest confirmation margin is about 0.0054.",
+    "Task activation caches are trusted host inputs, not independently authenticated by Wisp.",
+    "Wisp confirm replays the already-frozen host comparison; it is not a second independent holdout."
+  ]
+}

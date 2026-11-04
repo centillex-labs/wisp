@@ -1,0 +1,20 @@
+[package]
+name = "wisp-runtime"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+wisp-syntax = { path = "../wisp-syntax" }
+wisp-llvm = { path = "../wisp-llvm" }
+indexmap = "2"
+candle-core = "0.11.1"
+candle-nn = "0.11.1"
+tokenizers = { version = "0.23.2", default-features = false, features = ["onig"] }
+rayon = "1"
+safetensors = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+tempfile = "3"
+zip = { version = "2", default-features = false, features = ["deflate"] }

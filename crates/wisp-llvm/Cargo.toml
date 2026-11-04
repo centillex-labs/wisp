@@ -1,0 +1,8 @@
+[package]
+name = "wisp-llvm"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+wisp-syntax = { path = "../wisp-syntax" }
+libloading = "0.8"
