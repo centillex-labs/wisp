@@ -4,10 +4,10 @@ From the repository root:
 
 ```bash
 cargo build --release
-./target/release/wisp strawberry.wisp
+./target/release/wisp examples/strawberry.wisp
 ```
 
-[`strawberry.wisp`](../strawberry.wisp) downloads and caches the pinned Bonsai-1.7B
+[`strawberry.wisp`](../examples/strawberry.wisp) downloads and caches the pinned Bonsai-1.7B
 checkpoint, runs native CPU inference, fits an output-row edit, saves and reloads
 it, and asserts that generation returns `3`. No Python, task file, activation
 preparation, or Clang is needed at runtime.

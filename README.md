@@ -8,10 +8,10 @@ Wisp is a language for humans and AI agents to perform **[Weight Space Programmi
 
 ```bash
 cargo build --release
-./target/release/wisp strawberry.wisp
+./target/release/wisp examples/strawberry.wisp
 ```
 
-[strawberry.wisp](strawberry.wisp) downloads and caches Bonsai, edits four output
+[strawberry.wisp](examples/strawberry.wisp) downloads and caches Bonsai, edits four output
 rows, then reloads the saved weights and checks the generated answers. It runs on
 the CPU in Rust and needs about 8 GiB of available RAM.
 

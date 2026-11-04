@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "program": "strawberry.wisp",
+  "program": "examples/strawberry.wisp",
   "program_sha256": "5076f10c2b0354b98fcf004a1ecfc0676014b0eaca79d486780b4568251ddd68",
   "binary_sha256": "44ffdf08e55d69e35b82188f088b31dd2e9954f3eb38ec7db1618b3d5725c479",
   "model": {

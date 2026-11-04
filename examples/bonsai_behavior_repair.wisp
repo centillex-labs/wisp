@@ -1,5 +1,5 @@
 // Historical cached-head experiment; requires host-provided activations.
-// For the self-contained native workflow, run strawberry.wisp.
+// For the self-contained native workflow, run examples/strawberry.wisp from the repository root.
 // This is a closed-form, supervised two-token head correction, not a gradient update.
 // Actual Bonsai final hidden states are charged observations with Act provenance.
 base = wload('head_base.safetensors');
