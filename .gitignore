@@ -1,6 +1,6 @@
 target/
 examples/out/
-scripts/__pycache__/
+.workbench/
 .env
 .env.*
 !.env.example

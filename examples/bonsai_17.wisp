@@ -1,5 +1,5 @@
 // Real Bonsai-1.7B UNPACKED FP16 weights, not packed GGUF/MLX support.
-// Run from the cache directory printed by scripts/fetch_bonsai_17.py.
+// Run from a directory containing the pinned model.safetensors checkpoint.
 // This is a structural sign-edit experiment. It makes no behavioral claim.
 
 function changed = rebalance_blocks(D, block_size, k)

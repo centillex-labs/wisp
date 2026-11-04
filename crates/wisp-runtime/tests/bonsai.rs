@@ -1,5 +1,5 @@
-//! Offline Bonsai-style FP16 fixtures. Real model verification lives in
-//! scripts/verify_bonsai_17.py and never runs as part of the offline test suite.
+//! Offline Bonsai-style FP16 fixtures. Recorded checkpoint-level verification
+//! is documented in docs/bonsai-17.md; this suite needs no downloaded model.
 use safetensors::{tensor::TensorView, Dtype};
 use std::{
     fs,

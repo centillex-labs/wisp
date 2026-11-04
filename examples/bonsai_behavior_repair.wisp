@@ -1,4 +1,5 @@
-// Run only via scripts/bonsai_behavior_repair.py fit, after trusted preparation.
+// Historical cached-head experiment; requires host-provided activations.
+// For the self-contained native workflow, run strawberry.wisp.
 // This is a closed-form, supervised two-token head correction, not a gradient update.
 // Actual Bonsai final hidden states are charged observations with Act provenance.
 base = wload('head_base.safetensors');

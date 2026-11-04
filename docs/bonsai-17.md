@@ -14,31 +14,22 @@ safetensors export**. The workflow edits and verifies selected tensors.
 
 This export stores the 1-bit model's coefficients as FP16 values. Plan memory use
 for FP16 storage and Wisp's decoded tensors. Its Qwen3 configuration uses GQA,
-RMSNorm, SwiGLU, and YaRN rotary-position scaling. Behavioral evaluation uses an
-architecture-compatible external inference host.
+RMSNorm, SwiGLU, and YaRN rotary-position scaling. For native behavioral evaluation, see the [strawberry workflow](strawberry.md).
 
-## Download and run
+## Run with an existing checkpoint
 
-From the Wisp workspace:
+The structural example expects the pinned `model.safetensors` in its working
+directory. With the release binary on your PATH:
 
 ```bash
-ROOT="$PWD"
-cargo build --release
-python3 scripts/fetch_bonsai_17.py
-MODEL_DIR="${WISP_MODEL_CACHE:-$HOME/.cache/wisp/models}/prism-ml--Bonsai-1.7B-unpacked/a7f720bd688d7563714f3118edd97b83d06f0615"
-
-(
-  cd "$MODEL_DIR"
-  "$ROOT/target/release/wisp" "$ROOT/examples/bonsai_17.wisp" --budget 0
-  "$ROOT/target/release/wisp" apply model.safetensors \
-    bonsai17_layer0_sign_edit.patch.json bonsai17_layer0_rebuilt.safetensors
-)
-python3 scripts/verify_bonsai_17.py
+cd /path/to/checkpoint
+wisp /path/to/wisp/examples/bonsai_17.wisp --budget 0
 ```
 
-Only Python's standard library is needed. Downloads, edited weights, and rebuilt
-weights stay outside the workspace/Dropbox. Downloading the 3.44 GB FP16 export
-may take several minutes; the fetcher verifies its full SHA-256 before use.
+Use [native HF downloads](huggingface.md) to acquire pinned files. The original
+download/verification helpers have been retired. Recorded results below refer to
+that earlier experiment. For a self-contained download-to-generation workflow,
+run [strawberry.wisp](strawberry.md).
 
 ## The Wisp program
 
@@ -80,7 +71,7 @@ behavior. No inference, training, or gradients are used.
 | 16855 | 351 | 86 → 84 | 0.0308837890625 |
 | 49314 | 1027 | 86 → 84 | 0.040771484375 |
 
-Independent verification in `scripts/verify_bonsai_17.py` confirms:
+Independent verification in the recorded run confirmed:
 
 - The original complete checkpoint still has its pinned SHA-256.
 - The selected blocks match an independently computed ranking.

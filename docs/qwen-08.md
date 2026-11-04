@@ -12,30 +12,20 @@ This workflow inspects and edits three language-model MLP tensors. Behavioral
 evaluation requires an external inference backend supporting Qwen3.5's hybrid
 linear/full attention, gated attention, and vision components.
 
-## Download, run, rebuild, independently verify
+## Run with an existing checkpoint
 
-From the Wisp workspace:
+The structural example expects the pinned
+`model.safetensors-00001-of-00001.safetensors` in its working directory.
+With the release binary on your PATH:
 
 ```bash
-ROOT="$PWD"
-cargo build --release
-python3 scripts/fetch_qwen_08.py
-MODEL_DIR="${WISP_MODEL_CACHE:-$HOME/.cache/wisp/models}/Qwen--Qwen3.5-0.8B/2fc06364715b967f1860aea9cf38778875588b17"
-
-(
-  cd "$MODEL_DIR"
-  "$ROOT/target/release/wisp" "$ROOT/examples/qwen_08.wisp" --budget 0
-  "$ROOT/target/release/wisp" apply \
-    model.safetensors-00001-of-00001.safetensors \
-    qwen08_layer0_edit.patch.json qwen08_layer0_rebuilt.safetensors
-)
-python3 scripts/verify_qwen_08.py
+cd /path/to/checkpoint
+wisp /path/to/wisp/examples/qwen_08.wisp --budget 0
 ```
 
-No Python packages beyond the standard library are needed. Downloads and generated
-weights stay outside the workspace/Dropbox, under `~/.cache/wisp/models` by default.
-The download script verifies the pinned full-checkpoint SHA-256. It retains the
-repository config, index, README, and license beside the weights.
+Use [native HF downloads](huggingface.md) to acquire pinned files. The original
+download/verification helpers have been retired; the measurements below record
+the earlier experiment. The native Qwen3 backend does not run Qwen3.5.
 
 ## Why selective loading
 
@@ -107,7 +97,7 @@ not a validated behavioral intervention.
 On this machine, the Wisp editing run alone took about **0.41 s** and peaked at
 **263 MiB RAM**. Download/build time and full-model inference are not included.
 
-The independent Python verifier checks:
+Independent verification in the recorded run checked:
 
 1. The original checkpoint still has its pinned SHA-256.
 2. Top-column ranking and strongest-coefficient selection match Wisp's result.

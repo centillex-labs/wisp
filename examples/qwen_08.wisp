@@ -1,5 +1,5 @@
 // Real Qwen3.5-0.8B weight programming, with NO inference or training.
-// Run from the cache directory printed by scripts/fetch_qwen_08.py.
+// Run from a directory containing the pinned model.safetensors-00001-of-00001.safetensors checkpoint.
 // The 'parts' option reads only these three tensors from the actual checkpoint.
 // Saved output is a SELECTED TENSOR BUNDLE, not a complete runnable Qwen model.
 net = wload('model.safetensors-00001-of-00001.safetensors', 'parts', {

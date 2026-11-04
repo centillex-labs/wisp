@@ -5,8 +5,8 @@ on a defined character-counting task.
 
 The endpoint is a **constrained boolean classifier**: after the chat prompt, choose
 whichever of the single tokens `False` or `True` has the larger next-token logit.
-The Python host runs the Qwen3-based Bonsai decoder; Wisp replays and edits the
-selected output head. Evaluation covers these two output tokens.
+The historical Python host ran the Qwen3-based Bonsai decoder; Wisp replayed and
+edited the selected output head. Evaluation covers these two output tokens.
 
 ## What was reproduced and repaired
 
@@ -117,33 +117,22 @@ prompts. It **can** affect upstream computation for other prompts containing the
 edited token IDs. The example does not claim arbitrary internal-block replay is
 equivalent to end-to-end inference.
 
-## Reproduce from a fresh experiment directory
+## Historical backend and artifacts
 
-From the workspace root, with approximately 10 GiB of available RAM:
+This is the recorded external-host experiment, not the current standalone
+workflow. Its Python preparation and verification helpers have been removed.
+For native model downloading, inference, editing, and generation in one program,
+see [strawberry.wisp](strawberry.md). That is a separate experiment; it does not
+reproduce this boolean confirmation study.
 
-```bash
-cargo build --release
-python3 scripts/fetch_bonsai_17.py
-
-uv venv "$HOME/.cache/wisp/inference-venv"
-PY="$HOME/.cache/wisp/inference-venv/bin/python"
-uv pip install --python "$PY" 'torch==2.15.0+cpu' \
-  --index-url https://download.pytorch.org/whl/cpu
-uv pip install --python "$PY" -r scripts/requirements-bonsai-inference.txt
-
-"$PY" scripts/bonsai_behavior_repair.py prepare
-"$PY" scripts/bonsai_behavior_repair.py fit
-"$PY" scripts/bonsai_behavior_repair.py verify
-"$PY" scripts/bonsai_behavior_repair.py summarize
-```
-
-The host uses local files only for inference and disables remote model code. It
+The recorded host used local files only for inference and disables remote model code. It
 uses the official chat template with thinking disabled and
 `fix_mistral_regex=True`. Computation is CPU **float32**, using the exact values
 from the FP16 checkpoint. Four PyTorch threads were used. The verification stage
 in the recorded run took about **101 seconds**; preparation took about **37 seconds**.
 
-Model revision and hash are pinned by `scripts/fetch_bonsai_17.py`. Default artifacts:
+Model revision and hash are recorded in [the pinned source](bonsai-17.md#pinned-source).
+Artifacts from the recorded run were stored under:
 
 ```text
 ~/.cache/wisp/models/prism-ml--Bonsai-1.7B-unpacked/
@@ -159,10 +148,8 @@ Important files:
 - `evaluation.json`, `summary.json`: actual model results, including failures if any.
 - `external_observations.jsonl`, Wisp JSONL logs: observations, including rejected attempts.
 
-Existing frozen/confirmed experiments are not silently overwritten. `summarize`
-can inspect the completed run without another model observation. `WISP_EXPERIMENT_DIR`
-can select another external output directory, but replaying these published cases
-there does **not** make them a new unseen holdout for a subsequently tuned edit.
+The confirmation cases are consumed. Replaying these published cases in another
+directory does **not** make them a new unseen holdout for a subsequently tuned edit.
 
 ## Accounting and trust boundary
 
