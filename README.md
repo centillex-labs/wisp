@@ -11,30 +11,31 @@ cargo build --release
 ./target/release/wisp strawberry.wisp
 ```
 
-The self-contained [program](strawberry.wisp) caches Bonsai, runs inference, edits
-four output rows, reloads the saved weights, and asserts that it generates `3`.
-Native Rust CPU execution; no Python or task file. Allow about 8 GiB of available RAM.
+[strawberry.wisp](strawberry.wisp) downloads and caches Bonsai, edits four output
+rows, then reloads the saved weights and checks the generated answers. It runs on
+the CPU in Rust and needs about 8 GiB of available RAM.
 
-Recorded one-token generation from the full vocabulary:
+Each result is one generated token, selected from the full vocabulary:
 
 | Case | Before | After |
 | --- | --- | --- |
-| Count `r` in `strawberry` | `To` | **`3`** |
+| Count `r` in `strawberry` | `To` | `3` |
 | Count `r` in `cherry` | `3` | `2` |
 | Count `r` in `banana` | `3` | `0` |
 | Count `r` in `orange` | `3` | `1` |
 | Is 9 larger than 4? | `True` | `True` |
 | Is 4 larger than 9? | `False` | `False` |
 
-`To` was the original model's first token, not an incorrect numerical answer `2`.
-The correct counts are supplied as training targets; all six inputs are used in
-fitting, not held-out validation. This is a targeted repair, not a general counting
-claim. The saved FP16 edit reproduced these outputs in a fresh process and passed
-byte-exact patch reconstruction. [Exact prompts, results, and API](docs/strawberry.md).
+The original strawberry response began with `To`. All six inputs are used to fit
+the edit, with the correct counts supplied as targets. These results do not measure
+accuracy on unseen questions. Reloading the saved FP16 weights reproduced the
+outputs; patch reconstruction matched the saved file byte for byte.
+[Prompts, results, and API](docs/strawberry.md).
 
 ### Repair boolean judgments
 
-On Bonsai-1.7B’s FP16 export, we changed two output-token rows to repair character-count judgments using Wisp assertions.
+This earlier experiment changed two output-token rows in Bonsai-1.7B's FP16 export
+to correct character-count judgments.
 
 | Cases | Before | After |
 | --- | ---: | ---: |
@@ -42,7 +43,7 @@ On Bonsai-1.7B’s FP16 export, we changed two output-token rows to repair chara
 | Held-out plural variants | 6/12 | 12/12 |
 | Integer-comparison regression | 12/12 | 12/12 |
 
-Core of the [program we ran](examples/bonsai_behavior_repair.wisp):
+[Edit program](examples/bonsai_behavior_repair.wisp):
 
 ```wisp
 base = wload('head_base.safetensors');
@@ -82,7 +83,9 @@ end
 assert(confirm(base, stored, 'confirmation', @accuracy));
 ```
 
-Constrained `False`/`True` classification, evaluated with an external CPU backend—not general generation improvement. The 4,092-entry edit breaks the two rows’ 1-bit structure; some confirmation margins are small. [Results and reproduction](docs/bonsai-behavior-repair.md).
+Evaluation was restricted to choosing `False` or `True`, using an external CPU
+backend. The 4,092-entry edit changes the rows' original 1-bit structure, and some
+confirmation margins are small. [Recorded experiment](docs/bonsai-behavior-repair.md).
 
 ### Preserve block scales while editing signs
 
@@ -98,11 +101,12 @@ changed = rebalance_blocks(D, 128, 4);
 assert(changed == 8);
 ```
 
-A verified structural edit, not a demonstrated quality improvement. [Results](docs/bonsai-17.md).
+This test checks weight structure, not model behavior. [Results](docs/bonsai-17.md).
 
 ## Original Weight-Space Programming research
 
-[Sparks of Weight-Space Programming](https://rikiyat.github.io/blog/weight-space-programming/) — Rikiya Takehi, Jayden Teoh, Alex Zhang, and Omar Khattab. Six experiments from the original post:
+[Sparks of Weight-Space Programming](https://rikiyat.github.io/blog/weight-space-programming/)
+by Rikiya Takehi, Jayden Teoh, Alex Zhang, and Omar Khattab describes six experiments:
 
 | Experiment | Original write-up, examples, and logs |
 | --- | --- |
@@ -113,11 +117,13 @@ A verified structural edit, not a demonstrated quality improvement. [Results](do
 | Write MinAtar networks from scratch | [Experiment 5](https://github.com/RikiyaT/lm_understand-logs/tree/main/exp5_write_from_scratch) |
 | Write a 1.5-million-weight Go network | [Experiment 6](https://github.com/RikiyaT/lm_understand-logs/tree/main/exp6_go_from_scratch) |
 
-Experiment 5 originals → Wisp ports:
+Wisp ports of the Experiment 5 networks:
 
-- [Breakout](https://github.com/RikiyaT/lm_understand-logs/blob/main/exp5_write_from_scratch/runs/breakout/reply/answer.md) → [`breakout.wisp`](examples/breakout.wisp)
-- [Seaquest](https://github.com/RikiyaT/lm_understand-logs/blob/main/exp5_write_from_scratch/runs/seaquest/reply/answer.md) → [`seaquest.wisp`](examples/seaquest.wisp)
-- [Asterix](https://github.com/RikiyaT/lm_understand-logs/blob/main/exp5_write_from_scratch/runs/asterix/reply/answer.md) → [`asterix.wisp`](examples/asterix.wisp)
+| Game | Original | Wisp |
+| --- | --- | --- |
+| Breakout | [Source](https://github.com/RikiyaT/lm_understand-logs/blob/main/exp5_write_from_scratch/runs/breakout/reply/answer.md) | [breakout.wisp](examples/breakout.wisp) |
+| Seaquest | [Source](https://github.com/RikiyaT/lm_understand-logs/blob/main/exp5_write_from_scratch/runs/seaquest/reply/answer.md) | [seaquest.wisp](examples/seaquest.wisp) |
+| Asterix | [Source](https://github.com/RikiyaT/lm_understand-logs/blob/main/exp5_write_from_scratch/runs/asterix/reply/answer.md) | [asterix.wisp](examples/asterix.wisp) |
 
 Original example material is CC BY 4.0; Wisp source is MIT licensed.
 
