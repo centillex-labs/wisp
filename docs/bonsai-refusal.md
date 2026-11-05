@@ -76,6 +76,46 @@ and fit a direction on a labeled subset, then evaluate only on the reserved set.
 The probe program, its fixture, and the repeatability tests are committed and
 runnable; the heavier model checks are gated behind `WISP_REFUSAL_MODEL_TESTS=1`.
 
+## Writer-direction trace
+
+A later kernel session did the paper-style diagnostic that the norm analysis
+skipped. With one charged pass it captured final hidden states for the six
+candidates, formed the paired mean direction `r = mean(comply) - mean(refuse)`
+(normalized), and then, spending no observation passes, read the MLP `down`
+writer matrices of nine sampled layers and the attention `o` writers of the two
+extreme layers from the pinned checkpoint with `wload('parts', ...)`, scoring
+every written column against `r` by absolute cosine. A seeded random direction
+run the same way is the baseline.
+
+| Layer | max column cosine | columns above 0.05 |
+| --- | ---: | ---: |
+| 2 | 0.0960 | 126 |
+| 5 | 0.0793 | 128 |
+| 8 | 0.0812 | 172 |
+| 11 | 0.0758 | 155 |
+| 14 | 0.0784 | 141 |
+| 17 | 0.0961 | 172 |
+| 20 | 0.0985 | 162 |
+| 23 | **0.1594** (column 4563) | 181 |
+| 26 | 0.1155 (column 110) | 134 |
+| attention o, L2 / L26 | 0.0793 / 0.0795 | 45 / 56 |
+| random direction | 0.0236 to 0.0270 | 0 |
+
+The mean alignment in every layer (about 0.018) matches the random baseline, so
+the signal is not diffuse: it is concentrated in specific writer columns. The
+standout is the **layer 23 MLP**, whose column 4563 aligns with the
+refusal-separated direction at 0.159, about six times the strongest random
+alignment, with layer 26 next. This matches the paper's Experiment 8 pattern of
+a behavior carried by a few late-layer MLP writers, and it names concrete
+candidate columns for a causal removal edit.
+
+That causal step is still out of reach: the decoder rejects `remove` and
+`delta`, and there is no full-checkpoint export to edit writer columns and
+reload. Until that path exists, this is a candidate localization from six
+prompts, not a traced circuit; the paired direction is computed from final
+states, not from per-layer divergence, and nothing here is causal evidence.
+The session log is in the external cache (`~/.cache/wisp/kernel-trace`).
+
 ## Kernel session and the reserved prompts
 
 A `wisp kernel` session (see [kernel mode](kernel.md)) repeated the repair with
