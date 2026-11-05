@@ -76,6 +76,32 @@ and fit a direction on a labeled subset, then evaluate only on the reserved set.
 The probe program, its fixture, and the repeatability tests are committed and
 runnable; the heavier model checks are gated behind `WISP_REFUSAL_MODEL_TESTS=1`.
 
+## Causal test: removing the candidate direction does nothing
+
+With writer edits supported, the candidate localization became testable. A kernel
+session projected the paired direction out of the three standout writer columns
+(layer 23 column 4563, layer 26 column 110, layer 2 column 625) using
+`read_weights` plus `with_writers`, and regenerated everything:
+
+- All six candidate responses were byte-identical to baseline.
+- Both reserved-prompt responses were unchanged.
+- The projection removed only about 1.3 percent of each column's norm.
+
+So the single-column localization is falsified as a causal account. The
+refusal-associated direction is re-added by other writers after layer 23, is
+distributed across many columns, or is not a linear final-state direction at
+all; a final-state mean difference from six prompts cannot distinguish these.
+The paper's looping fix removed one direction from 64 columns in each of two
+layers and worked, which suggests behavior-carrying directions live in many
+writer columns at once.
+
+What the new tooling proved: the full paper-style loop now runs on Wisp (read
+writers analytically, form a paired direction, edit columns causally, verify
+totally unchanged controls), and it can falsify a localization in one session.
+What would come next: per-layer divergence capture to find where the separation
+first forms, editing whole direction subspaces across all writers rather than
+single columns, and a much larger labeled prompt set.
+
 ## Writer-direction trace
 
 A later kernel session did the paper-style diagnostic that the norm analysis

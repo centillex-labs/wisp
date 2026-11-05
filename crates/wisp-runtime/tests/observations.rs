@@ -18,12 +18,16 @@ fn run(it: &mut Interp, src: &str) -> Result<wisp_runtime::interp::Env, wisp_syn
 }
 fn register(it: &mut Interp, name: &str, values: &[f64]) {
     it.harness
-        .register_dataset(name, Value::Arr(Tensor::col(values.to_vec())))
+        .register_dataset(name, Value::Arr(Tensor::col(values.to_vec())), false)
         .unwrap();
 }
 fn texts(it: &mut Interp, name: &str, values: &[&str]) {
     it.harness
-        .register_dataset(name, Value::cell(values.iter().map(Value::str).collect()))
+        .register_dataset(
+            name,
+            Value::cell(values.iter().map(Value::str).collect()),
+            false,
+        )
         .unwrap();
 }
 
@@ -71,7 +75,7 @@ fn batch_costs_round_up_and_charge_before_work() {
     for (function, n, extra) in [("tf", 1025, ""), ("gen", 513, ", 1")] {
         let mut it = interp(2);
         let seqs = Value::cell((0..n).map(|_| Value::str("ab")).collect());
-        it.harness.register_dataset("batch", seqs).unwrap();
+        it.harness.register_dataset("batch", seqs, false).unwrap();
         run(
             &mut it,
             &format!("{TRANSFORMER}\nx={function}(n,'batch'{extra});"),

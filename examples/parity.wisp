@@ -33,7 +33,7 @@ for L = 1..10
     end
 end
 Y = run(net, X);                    // logits at the last position, one row per string
-[_, k] = max(Y, [], 1);             // 0-based: token 0 is '0', token 1 is '1'
+[_, k] = max(Y, [], 2);             // 0-based: token 0 is '0', token 1 is '1'
 acc = mean(k' == want);
 fprintf('parity: %d strings, accuracy %.4f, %d nonzero weights of %d\n', ...
         numel(want), acc, sum(abs([net.embed[:]; net.L[0].attn.v[:]; net.L[0].attn.o[:]; ...

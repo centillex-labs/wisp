@@ -80,6 +80,9 @@ pub const NAMES: &[&str] = &[
     "capture",
     "token_head",
     "with_head",
+    "with_writers",
+    "read_weights",
+    "score",
     "repmat",
     "dec2bin",
     "num2str",
@@ -264,6 +267,20 @@ fn reduce(
             out.into_iter().map(|a| post(a, c)).collect(),
             tag,
         )
+    }
+}
+
+/// MATLAB dimension convention: dim 1 reduces rows (result is one row),
+/// dim 2 reduces columns (result is one column).
+fn dim_arg(it: &Interp, v: &Value, span: Span) -> R<usize> {
+    match usize_arg(it, v, span, "the dimension")? {
+        1 => Ok(0),
+        2 => Ok(1),
+        d => Err(err(
+            "E-ARGS",
+            format!("dimension must be 1 or 2, got {d}"),
+            span,
+        )),
     }
 }
 
@@ -868,7 +885,7 @@ pub fn call(
             need(1)?;
             let t = arr(it, &a[0], span)?;
             let dim = if a.len() > 1 {
-                Some(usize_arg(it, &a[1], span, "the dimension")?)
+                Some(dim_arg(it, &a[1], span)?)
             } else {
                 None
             };
@@ -919,7 +936,7 @@ pub fn call(
                 return t1(t.zip(&u, f).map_err(|m| err("E-SHAPE", m, span))?);
             }
             let dim = if a.len() >= 3 {
-                Some(usize_arg(it, &a[2], span, "the dimension")?)
+                Some(dim_arg(it, &a[2], span)?)
             } else {
                 None
             };
@@ -1284,9 +1301,8 @@ pub fn call(
             let path = string(&a[0], span, "the path")?;
             one(Value::boolean(std::path::Path::new(&path).is_file()))
         }
-        "hf_model" | "capture" | "token_head" | "with_head" => {
-            crate::decoder_api::call(it, name, a, span)
-        }
+        "hf_model" | "capture" | "token_head" | "with_head" | "with_writers" | "read_weights"
+        | "score" => crate::decoder_api::call(it, name, a, span),
         "gen" if crate::decoder_api::is_decoder(a.first()) => {
             crate::decoder_api::call(it, name, a, span)
         }
@@ -1769,10 +1785,10 @@ pub fn call(
             t1(Tensor::scalar(left))
         }
         "dataset" => {
-            if a.len() != 2 {
+            if a.len() != 2 && a.len() != 4 {
                 return Err(err(
                     "E-ARGS",
-                    "dataset needs a name and input array or cell",
+                    "dataset needs a name, an input array or cell, and optionally 'heldout', true",
                     span,
                 ));
             }
@@ -1780,8 +1796,27 @@ pub fn call(
             if name.trim().is_empty() {
                 return Err(err("E-ARGS", "dataset name must not be empty", span));
             }
+            let heldout = if a.len() == 4 {
+                let options = opts(a, 2, span)?;
+                for key in options.keys() {
+                    if key != "heldout" {
+                        return Err(err(
+                            "E-ARGS",
+                            format!("unknown dataset option '{key}'"),
+                            span,
+                        ));
+                    }
+                }
+                match options.get("heldout").map(|v| num(it, v, span, "heldout")) {
+                    Some(Ok(0.0)) => false,
+                    Some(Ok(1.0)) => true,
+                    _ => return Err(err("E-ARGS", "heldout must be true or false", span)),
+                }
+            } else {
+                false
+            };
             it.harness
-                .register_dataset(&name, a[1].clone())
+                .register_dataset(&name, a[1].clone(), heldout)
                 .map_err(|m| err("E-DATASET", m, span))?;
             one(Value::Nothing)
         }
@@ -1829,9 +1864,17 @@ pub fn call(
                 ));
             }
             let loc = it.loc(span);
-            it.harness
-                .observe("activations", 1, &loc, &data)
-                .map_err(|m| err("E-BUDGET", m, span))?;
+            match it.harness.observe("activations", 1, &loc, &data) {
+                Ok(()) => {}
+                Err(crate::harness::ObserveError::HeldOut) => return Err(err(
+                    "E-HELDOUT",
+                    "held-out data may only be observed by score; declare a separate fitting set",
+                    span,
+                )),
+                Err(crate::harness::ObserveError::Budget(m)) => {
+                    return Err(err("E-BUDGET", m, span))
+                }
+            }
             one(data.value)
         }
         "run" => {
@@ -1842,9 +1885,17 @@ pub fn call(
                 .harness
                 .resolve_data(&a[1])
                 .map_err(|(c, m)| err(c, m, span))?;
-            it.harness
-                .observe("run", 1, &loc, &data)
-                .map_err(|m| err("E-BUDGET", m, span))?;
+            match it.harness.observe("run", 1, &loc, &data) {
+                Ok(()) => {}
+                Err(crate::harness::ObserveError::HeldOut) => return Err(err(
+                    "E-HELDOUT",
+                    "held-out data may only be observed by score; declare a separate fitting set",
+                    span,
+                )),
+                Err(crate::harness::ObserveError::Budget(m)) => {
+                    return Err(err("E-BUDGET", m, span))
+                }
+            }
             let nb = n.borrow();
             let out = match (&nb.arch, &data.value) {
                 (Arch::Mlp { sizes, .. }, x) => {

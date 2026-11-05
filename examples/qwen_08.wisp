@@ -15,7 +15,7 @@ fprintf('Qwen layer 0: down %d x %d, selected weights %d\n', rows(D), cols(D), n
 
 // Rank the MLP neurons by the squared norm of their residual-writing columns.
 // This uses weights only: elementwise arithmetic/reductions cost no observations.
-energy = sum(D.^2, 0);
+energy = sum(D.^2);
 [largest, neurons] = maxk(energy, 4);
 disp('Four strongest residual-writing MLP neurons (0-based):');
 disp(neurons);

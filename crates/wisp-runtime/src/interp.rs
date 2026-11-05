@@ -1319,12 +1319,21 @@ impl Interp {
                 .harness
                 .resolve_data(&Value::Arr(literal.clone()))
                 .map_err(|(c, m)| err(c, m, span))?;
-            self.harness.observe("probe", 1, &loc, &data).map_err(|m| {
-                err("E-BUDGET", m, span)
-                    .label("a product of weights with a literal is a hand-built forward pass")
-                    .hint(
-                        "products of weights with weights are free; observation goes through run()",
-                    )
+            self.harness.observe("probe", 1, &loc, &data).map_err(|e| {
+                match e {
+                    crate::harness::ObserveError::HeldOut => err(
+                        "E-HELDOUT",
+                        "held-out data may only be observed by score; declare a separate fitting set",
+                        span,
+                    ),
+                    crate::harness::ObserveError::Budget(m) => {
+                        err("E-BUDGET", m, span)
+                            .label("a product of weights with a literal is a hand-built forward pass")
+                            .hint(
+                                "products of weights with weights are free; observation goes through run()",
+                            )
+                    }
+                }
             })?;
         }
         Ok(probe)

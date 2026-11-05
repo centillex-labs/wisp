@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use wisp_runtime::value::Value;
 use wisp_runtime::{
     decoder::Model,
     io::{self, LoadOpts, SaveOpts},
@@ -187,4 +188,87 @@ fn malformed_native_configuration_and_checkpoint_are_rejected() {
     assert!(model.forward(&[]).is_err());
     assert!(model.forward(&[model.vocab() as u32]).is_err());
     assert!(model.encode(&"a ".repeat(model.context())).is_err());
+}
+
+#[test]
+fn forward_trace_reports_layer_states_and_attention_views() {
+    let model = model();
+    let ids = model.encode("a b").unwrap();
+    let (h, logits, layers, attn) = model.forward_trace(&ids, &[0, 1], &[0]).unwrap();
+    assert_eq!(h.len(), model.width());
+    assert_eq!(logits.len(), model.vocab());
+    assert_eq!(layers.len(), 2);
+    assert_eq!(layers[0].0, 0);
+    assert_eq!(layers[1].0, 1);
+    assert!(layers.iter().all(|(_, v)| v.len() == model.width()));
+    let config: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(fixture().join("config.json")).unwrap()).unwrap();
+    let heads = config["num_attention_heads"].as_u64().unwrap() as usize;
+    assert_eq!(attn.len(), 1);
+    assert_eq!(attn[0].0, 0);
+    assert_eq!(attn[0].1.len(), heads * ids.len());
+    let sum: f64 = attn[0].1.iter().sum();
+    assert!(
+        (sum - heads as f64).abs() < 1e-3,
+        "each head's probabilities must sum to 1"
+    );
+    // Tracing must not change the plain forward pass.
+    assert_eq!(model.forward(&ids).unwrap(), (h, logits));
+}
+
+#[test]
+fn writer_edits_replace_tensors_with_provenance_and_shape_checks() {
+    let model = model();
+    let source = model.weights_path().to_str().unwrap().to_string();
+    let net = wisp_runtime::io::load_selected(
+        &source,
+        &LoadOpts {
+            in_out: false,
+            act: "linear".into(),
+        },
+        &["model.layers.0.mlp.down_proj.weight".to_string()],
+    )
+    .unwrap();
+    let mut parts = net;
+    parts
+        .meta
+        .insert("model_identity".into(), Value::str(model.identity()));
+    let name = "L[0].mlp.down";
+    let config: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(fixture().join("config.json")).unwrap()).unwrap();
+    let expected_shape = vec![
+        config["hidden_size"].as_u64().unwrap() as usize,
+        config["intermediate_size"].as_u64().unwrap() as usize,
+    ];
+    let before = model.forward(&model.encode("a b").unwrap()).unwrap();
+    {
+        let part = parts.parts.get_mut(name).unwrap();
+        assert_eq!(part.shape, expected_shape);
+        for v in part.data.iter_mut().take(8) {
+            *v += 0.25;
+        }
+    }
+    let edited = model.with_writers(&parts).unwrap();
+    assert_eq!(edited.edited_parts(), [name]);
+    assert!(edited.summary().contains("1 edited writer tensors"));
+    // The edit changes behavior...
+    let after = edited.forward(&model.encode("a b").unwrap()).unwrap();
+    assert_ne!(before, after);
+    // ...and the base model is untouched.
+    assert_eq!(
+        model.forward(&model.encode("a b").unwrap()).unwrap(),
+        before
+    );
+
+    let mut wrong_identity = parts.clone();
+    wrong_identity
+        .meta
+        .insert("model_identity".into(), Value::str("other"));
+    assert!(model.with_writers(&wrong_identity).is_err());
+    let mut unbound = parts.clone();
+    unbound.meta.shift_remove("model_identity");
+    assert!(model.with_writers(&unbound).is_err());
+    let mut bad_shape = parts.clone();
+    bad_shape.parts.get_mut(name).unwrap().shape = vec![2, 3];
+    assert!(model.with_writers(&bad_shape).is_err());
 }

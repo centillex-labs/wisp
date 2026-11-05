@@ -31,9 +31,11 @@ pub fn call(it: &mut Interp, name: &str, a: &[Value], span: Span) -> R<Vec<Value
     let count = match name {
         "hf_model" => 1,
         "gen" => 3,
+        "score" => 4,
         _ => 2,
     };
-    if a.len() < count || (!matches!(name, "gen" | "hf_model") && a.len() != count) {
+    let variadic = matches!(name, "hf_model" | "gen" | "capture" | "read_weights");
+    if a.len() < count || (!variadic && a.len() != count) {
         return Err(err(
             "E-ARGS",
             format!("{name} needs {count} positional arguments"),
@@ -137,6 +139,129 @@ pub fn call(it: &mut Interp, name: &str, a: &[Value], span: Span) -> R<Vec<Value
         result.decoder = Some(edited);
         return Ok(vec![Value::Net(result.into_ref())]);
     }
+    if name == "read_weights" {
+        let names = cell_strings(&a[1], span, "tensor names")?;
+        if names.is_empty() {
+            return Err(err(
+                "E-ARGS",
+                "read_weights needs at least one tensor name",
+                span,
+            ));
+        }
+        let source = net
+            .borrow()
+            .source
+            .clone()
+            .ok_or_else(|| fail("this model has no checkpoint path".to_string()))?;
+        let options = crate::io::LoadOpts {
+            in_out: false,
+            act: "linear".into(),
+        };
+        let mut parts = crate::io::load_selected(&source, &options, &names).map_err(&fail)?;
+        parts
+            .meta
+            .insert("model_identity".into(), Value::str(model.identity()));
+        return Ok(vec![Value::Net(parts.into_ref())]);
+    }
+    if name == "with_writers" {
+        let parts = net_of(&a[1], span)?;
+        let edited = model.with_writers(&parts.borrow()).map_err(fail)?;
+        let mut result = net.borrow().clone();
+        result.decoder = Some(edited);
+        result.meta.insert(
+            "edited_parts".into(),
+            Value::cell(
+                result
+                    .decoder
+                    .as_ref()
+                    .unwrap()
+                    .edited_parts()
+                    .iter()
+                    .map(Value::str)
+                    .collect(),
+            ),
+        );
+        return Ok(vec![Value::Net(result.into_ref())]);
+    }
+    if name == "score" {
+        let steps = usize_arg(it, &a[2], span, "maximum new tokens")?;
+        let grader = match &a[3] {
+            Value::Func(f) => f.clone(),
+            _ => {
+                return Err(err(
+                    "E-ARGS",
+                    "score needs a grader function as its fourth argument",
+                    span,
+                ))
+            }
+        };
+        if steps == 0 || steps > 64 {
+            return Err(err("E-ARGS", "score requires 1..64 new tokens", span));
+        }
+        let data = it
+            .harness
+            .resolve_data(&a[1])
+            .map_err(|(c, m)| err(c, m, span))?;
+        let prompts = cell_strings(&data.value, span, "prompts")?;
+        if prompts.is_empty() || prompts.len() > 1024 {
+            return Err(err("E-ARGS", "score requires 1..1024 prompts", span));
+        }
+        let sequences: Vec<_> = prompts
+            .iter()
+            .map(|p| model.encode(p))
+            .collect::<Result<_, _>>()
+            .map_err(fail)?;
+        if sequences.iter().any(|s| s.len() + steps > model.context()) {
+            return Err(err(
+                "E-ARGS",
+                "scored prompts must fit the context limit with room for new tokens",
+                span,
+            ));
+        }
+        let loc = it.loc(span);
+        let cost = (sequences.len() as u64).div_ceil(512);
+        it.harness
+            .observe_score(cost, &loc, &data)
+            .map_err(|m| err("E-BUDGET", m, span))?;
+        let mut texts = Vec::new();
+        let mut scores = Vec::new();
+        for mut ids in sequences {
+            let mut generated = Vec::new();
+            for _ in 0..steps {
+                let (_, l) = model.forward(&ids).map_err(fail)?;
+                let next = best(&l) as u32;
+                generated.push(next);
+                ids.push(next);
+                if next == model.eos() {
+                    break;
+                }
+            }
+            let text = model.decode(&generated).map_err(fail)?;
+            let value = it
+                .call_value(&grader, vec![Value::str(text.clone())], 1, span)?
+                .into_iter()
+                .next();
+            let x = match value {
+                Some(v) => num(it, &v, span, "the grader result")?,
+                None => {
+                    return Err(err(
+                        "E-ARGS",
+                        "the grader must return one number per response",
+                        span,
+                    ))
+                }
+            };
+            scores.push(x);
+            texts.push(Value::str(text));
+        }
+        let n = scores.len() as f64;
+        let mean = scores.iter().sum::<f64>() / n;
+        let mut result = IndexMap::new();
+        result.insert("scores".into(), array(vec![scores.len(), 1], scores));
+        result.insert("mean".into(), array(vec![1, 1], vec![mean]));
+        result.insert("texts".into(), Value::cell(texts));
+        return Ok(vec![Value::strukt(result)]);
+    }
     let data = it
         .harness
         .resolve_data(&a[1])
@@ -154,6 +279,47 @@ pub fn call(it: &mut Interp, name: &str, a: &[Value], span: Span) -> R<Vec<Value
         .map(|p| model.encode(p))
         .collect::<Result<_, _>>()
         .map_err(fail)?;
+    let (layers_wanted, attn_wanted) = if name == "capture" && a.len() > 2 {
+        let options = opts(a, 2, span)?;
+        for key in options.keys() {
+            if !["layers", "attn"].contains(&key.as_str()) {
+                return Err(err(
+                    "E-ARGS",
+                    format!("unknown capture option '{key}'"),
+                    span,
+                ));
+            }
+        }
+        let indices = |key: &str| -> R<Vec<usize>> {
+            match options.get(key) {
+                None => Ok(vec![]),
+                Some(Value::Cell(c)) => c
+                    .iter()
+                    .map(|v| usize_arg(it, v, span, key))
+                    .collect::<R<Vec<_>>>(),
+                Some(Value::Arr(t)) => t
+                    .data
+                    .iter()
+                    .map(|v| {
+                        usize_arg(
+                            it,
+                            &Value::Arr(crate::tensor::Tensor::scalar(*v)),
+                            span,
+                            key,
+                        )
+                    })
+                    .collect::<R<Vec<_>>>(),
+                Some(_) => Err(err(
+                    "E-ARGS",
+                    format!("{key} needs an array or cell of layer indices"),
+                    span,
+                )),
+            }
+        };
+        (indices("layers")?, indices("attn")?)
+    } else {
+        (vec![], vec![])
+    };
     let steps = if name == "gen" {
         let steps = usize_arg(it, &a[2], span, "maximum new tokens")?;
         let options = opts(a, 3, span)?;
@@ -195,13 +361,23 @@ pub fn call(it: &mut Interp, name: &str, a: &[Value], span: Span) -> R<Vec<Value
     } else {
         1
     };
-    it.harness
-        .observe(name, cost, &loc, &data)
-        .map_err(|m| err("E-BUDGET", m, span))?;
+    match it.harness.observe(name, cost, &loc, &data) {
+        Ok(()) => {}
+        Err(crate::harness::ObserveError::HeldOut) => {
+            return Err(err(
+                "E-HELDOUT",
+                "held-out data may only be observed by score; declare a separate fitting set",
+                span,
+            ))
+        }
+        Err(crate::harness::ObserveError::Budget(m)) => return Err(err("E-BUDGET", m, span)),
+    }
     let mut texts = Vec::new();
     let mut tokens = Vec::new();
     let mut hidden = Vec::new();
     let mut logits = Vec::new();
+    let mut layer_states: Vec<Vec<f64>> = Vec::new();
+    let mut attn_states: Vec<Vec<f64>> = Vec::new();
     for mut ids in sequences {
         if name == "gen" {
             let mut generated = Vec::new();
@@ -220,7 +396,27 @@ pub fn call(it: &mut Interp, name: &str, a: &[Value], span: Span) -> R<Vec<Value
                 generated.into_iter().map(f64::from).collect(),
             ));
         } else {
-            let (h, l) = model.forward(&ids).map_err(fail)?;
+            let (h, l, layer_states_prompt, attn_states_prompt) = model
+                .forward_trace(&ids, &layers_wanted, &attn_wanted)
+                .map_err(fail)?;
+            if name == "capture" {
+                if !layers_wanted.is_empty() {
+                    layer_states.push(
+                        layer_states_prompt
+                            .into_iter()
+                            .flat_map(|(_, v)| v)
+                            .collect(),
+                    );
+                }
+                if !attn_wanted.is_empty() {
+                    attn_states.push(
+                        attn_states_prompt
+                            .into_iter()
+                            .flat_map(|(_, v)| v)
+                            .collect(),
+                    );
+                }
+            }
             texts.push(Value::str(model.decode(&[best(&l) as u32]).map_err(fail)?));
             tokens.push(array(
                 vec![1, ids.len()],
@@ -245,6 +441,29 @@ pub fn call(it: &mut Interp, name: &str, a: &[Value], span: Span) -> R<Vec<Value
             "logits".into(),
             array(vec![prompts.len(), model.vocab()], logits),
         );
+        if !layers_wanted.is_empty() {
+            result.insert(
+                "layers".into(),
+                array(
+                    vec![prompts.len() * layers_wanted.len(), model.width()],
+                    layer_states.into_iter().flatten().collect(),
+                ),
+            );
+            let ids: Vec<f64> = layers_wanted.iter().map(|l| *l as f64).collect();
+            result.insert("layer_ids".into(), array(vec![1, ids.len()], ids));
+        }
+        if !attn_wanted.is_empty() {
+            let attn_len = attn_states.first().map_or(0, |v| v.len());
+            result.insert(
+                "attn".into(),
+                array(
+                    vec![prompts.len() * attn_wanted.len(), attn_len],
+                    attn_states.into_iter().flatten().collect(),
+                ),
+            );
+            let ids: Vec<f64> = attn_wanted.iter().map(|l| *l as f64).collect();
+            result.insert("attn_layer_ids".into(), array(vec![1, ids.len()], ids));
+        }
     } else {
         result.insert("tokens".into(), Value::cell(tokens));
     }

@@ -2,8 +2,8 @@
 // The host only verifies/copies original tensor bytes and supplies their metadata.
 function [s, column_energy] = inspect_weights(D, matrix)
     v = reshape(D, 1, numel(D));
-    row_energy = sum(D.^2, 1);
-    column_energy = sum(D.^2, 0);
+    row_energy = sum(D.^2, 2);
+    column_energy = sum(D.^2, 1);
     [peak, row_id] = max(row_energy);
     s = zeros(1, 21);
     s[0] = numel(D);
@@ -25,14 +25,14 @@ function [s, column_energy] = inspect_weights(D, matrix)
             b = candidates[j];
             assert(mod(cols(D), b) == 0);
             blocks = reshape(A, numel(A)/b, b);
-            hi = max(blocks, [], 1);
-            lo = min(blocks, [], 1);
+            hi = max(blocks, [], 2);
+            lo = min(blocks, [], 2);
             s[9+j] = sum(hi != lo);
             if b == 128
                 s[13] = numel(hi);
                 s[14] = min(hi);
                 s[15] = max(hi);
-                positives = sum(reshape(D > 0, numel(D)/b, b), 1);
+                positives = sum(reshape(D > 0, numel(D)/b, b), 2);
                 s[16] = min(positives);
                 s[17] = max(positives);
             end
@@ -110,15 +110,15 @@ for layer = 0..layers-1
     assert(rows(G) == rows(U));
     assert(cols(D) == rows(G));
     assert(cols(G) == rows(D));
-    gn = sqrt(sum(G.^2,1));
-    un = sqrt(sum(U.^2,1));
-    dn = sqrt(sum(D.^2,0))';
+    gn = sqrt(sum(G.^2,2));
+    un = sqrt(sum(U.^2,2));
+    dn = sqrt(sum(D.^2))';
     bound = gn.*un.*dn;
     dead = sum(bound == 0);
     [top, channel] = max(bound);
     ordered = sort(bound);
     middle = (ordered[floor((numel(ordered)-1)/2)] + ordered[floor(numel(ordered)/2)])/2;
-    cosine = sum(G.*U,1) ./ max(gn.*un, 1e-300); // numerical denominator guard, not a repair threshold
+    cosine = sum(G.*U,2) ./ max(gn.*un, 1e-300); // numerical denominator guard, not a repair threshold
     fprintf('MLP,%d,%d,%.17g,%.17g,%d,%.17g,%.17g\n', ...
             layer, dead, top, middle, channel, mean(abs(cosine)), max(abs(cosine)));
 
@@ -131,10 +131,10 @@ for layer = 0..layers-1
     assert(mod(qh,kvh) == 0);
     assert(rows(a.L[layer].attn.k) == rows(a.L[layer].attn.v));
     assert(cols(a.L[layer].attn.o) == qh*head_dim);
-    qn = sqrt(sum(reshape(sum(a.L[layer].attn.q.^2,1), qh, head_dim),1));
-    kn = sqrt(sum(reshape(sum(a.L[layer].attn.k.^2,1), kvh, head_dim),1));
-    vn = sqrt(sum(reshape(sum(a.L[layer].attn.v.^2,1), kvh, head_dim),1));
-    on = sqrt(sum(reshape(sum(a.L[layer].attn.o.^2,0), qh, head_dim),1));
+    qn = sqrt(sum(reshape(sum(a.L[layer].attn.q.^2,2), qh, head_dim),2));
+    kn = sqrt(sum(reshape(sum(a.L[layer].attn.k.^2,2), kvh, head_dim),2));
+    vn = sqrt(sum(reshape(sum(a.L[layer].attn.v.^2,2), kvh, head_dim),2));
+    on = sqrt(sum(reshape(sum(a.L[layer].attn.o.^2), qh, head_dim),2));
     vo = zeros(qh,1);
     for h = 0..qh-1, vo[h] = vn[floor(h/(qh/kvh))]*on[h]; end
     [largest, h] = max(vo);

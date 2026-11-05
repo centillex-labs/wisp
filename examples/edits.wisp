@@ -27,7 +27,7 @@ u{0} = randn(16, 1, 'seed', 5);
 u{1} = randn(16, 1, 'seed', 6);
 q = remove(net, parts(net, 'L[0,1].mlp.down'), u, 6, 'on', 'out', 'top', 4);
 for l = 0..1
-    changed = sum(any(abs(q.L[l].mlp.down - net.L[l].mlp.down) > 0, 0));
+    changed = sum(any(abs(q.L[l].mlp.down - net.L[l].mlp.down) > 0));
     fprintf('case 2: layer %d: %d of 32 columns changed\n', l, changed);
     assert(changed == 4);
 end

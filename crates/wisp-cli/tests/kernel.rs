@@ -10,6 +10,10 @@ struct Kernel {
 
 impl Kernel {
     fn start(setup: &str, extra: &[&str]) -> Self {
+        Self::start_with("", extra, setup)
+    }
+
+    fn start_with(transcript: &str, extra: &[&str], setup: &str) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("setup.wisp");
         std::fs::write(&path, setup).unwrap();
@@ -17,6 +21,11 @@ impl Kernel {
             .arg("kernel")
             .arg(path)
             .args(extra)
+            .args(if transcript.is_empty() {
+                vec![]
+            } else {
+                vec!["--transcript".to_string(), transcript.to_string()]
+            })
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -78,11 +87,7 @@ fn kernel_charges_one_budget_across_statements_and_survives_errors() {
     assert_eq!(a["budget_remaining"], 0);
     let b = k.send("z = run(net, 'points');");
     assert_eq!(b["ok"], false, "{b}");
-    assert_eq!(
-        b["error"].as_str().unwrap().contains("E-BUDGET"),
-        true,
-        "{b}"
-    );
+    assert!(b["error"].as_str().unwrap().contains("E-BUDGET"), "{b}");
     // The session continues after the budget error.
     let c = k.send("disp('still alive');");
     assert_eq!(c["ok"], true, "{c}");
@@ -123,4 +128,56 @@ fn kernel_log_flag_and_end_of_input() {
     drop(k); // end of input closes stdin and the session
     let events = std::fs::read_to_string(&log).unwrap();
     assert_eq!(events.lines().count(), 1, "{events}");
+}
+
+#[test]
+fn kernel_records_a_transcript_and_resume_replays_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let transcript = dir.path().join("session.jsonl").display().to_string();
+    {
+        let mut k = Kernel::start_with(&transcript, &[], "x = 1;");
+        assert_eq!(k.receive()["event"], "ready");
+        let a = k.send("y = x + 41;\ndisp(y);");
+        assert_eq!(a["output"], "42\n");
+        k.send("exit");
+    }
+    let raw = std::fs::read_to_string(&transcript).unwrap();
+    eprintln!("TRANSCRIPT={:?}", raw);
+    let lines: Vec<serde_json::Value> = raw
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(lines[0]["event"], "setup");
+    assert_eq!(lines[1]["event"], "chunk");
+    assert_eq!(lines[1]["response"]["output"], "42\n");
+
+    // Resume replays the recorded chunks; state and budget carry forward.
+    let mut k = Kernel::start_with(&transcript, &["--resume", &transcript], "x = 1;");
+    assert_eq!(k.receive()["event"], "ready");
+    let next = k.send("disp(y + 1);");
+    assert_eq!(next["output"], "43\n", "{}", next);
+    k.send("exit");
+}
+
+#[test]
+fn kernel_resume_refuses_a_different_setup_program() {
+    let dir = tempfile::tempdir().unwrap();
+    let transcript = dir.path().join("session.jsonl").display().to_string();
+    {
+        let mut k = Kernel::start_with(&transcript, &[], "x = 1;");
+        assert_eq!(k.receive()["event"], "ready");
+        k.send("disp(x);");
+        k.send("exit");
+    }
+    let other = dir.path().join("other-setup.wisp");
+    std::fs::write(&other, "x = 999;").unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_wisp"))
+        .arg("kernel")
+        .arg(&other)
+        .args(["--resume", &transcript])
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("different setup program"));
 }

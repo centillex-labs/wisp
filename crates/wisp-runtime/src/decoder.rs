@@ -3,12 +3,19 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::{ops, rotary_emb, VarBuilder};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{fs::File, io::Read, path::Path, sync::Arc};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tokenizers::Tokenizer;
 
 use crate::net::{self, Dtype, NetData};
 
 type Result<T> = std::result::Result<T, String>;
+type TraceList = Vec<(usize, Vec<f64>)>;
+type TensorTrace = Vec<(usize, Tensor)>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HeadBinding {
@@ -21,6 +28,8 @@ pub struct HeadBinding {
 pub struct Model {
     base: Arc<Decoder>,
     head: Option<NetDataHead>,
+    /// Canonical names of writer tensors replaced by `with_writers`, in order.
+    edits: Vec<String>,
 }
 #[derive(Clone)]
 struct NetDataHead {
@@ -67,6 +76,7 @@ fn beta_slow() -> f64 {
     1.0
 }
 
+#[derive(Clone)]
 struct Layer {
     input_norm: Tensor,
     post_norm: Tensor,
@@ -80,6 +90,7 @@ struct Layer {
     up: Tensor,
     down: Tensor,
 }
+#[derive(Clone)]
 struct Decoder {
     config: Config,
     embedding: Tensor,
@@ -89,7 +100,8 @@ struct Decoder {
     tokenizer: Tokenizer,
     identity: String,
     dtype: Dtype,
-    pool: rayon::ThreadPool,
+    source: PathBuf,
+    pool: std::sync::Arc<rayon::ThreadPool>,
 }
 
 fn file_hash(path: &Path) -> Result<String> {
@@ -228,10 +240,12 @@ impl Model {
                 return Err(format!("Qwen3 tokenizer is missing {token}"));
             }
         }
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(4)
-            .build()
-            .map_err(|e| e.to_string())?;
+        let pool = std::sync::Arc::new(
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(4)
+                .build()
+                .map_err(|e| e.to_string())?,
+        );
         let vb = VarBuilder::from_backend(Box::new(weights_reader), DType::F32, Device::Cpu);
         let loaded = (|| -> candle_core::Result<_> {
             let d = cfg.hidden_size;
@@ -275,9 +289,11 @@ impl Model {
                 tokenizer,
                 identity,
                 dtype,
+                source: weights.to_path_buf(),
                 pool,
             }),
             head: None,
+            edits: Vec::new(),
         })
     }
     pub fn parameter_count(&self) -> usize {
@@ -315,11 +331,17 @@ impl Model {
             + self.head.as_ref().map_or(0, |h| h.weights.len())
     }
     pub fn summary(&self) -> String {
+        let edits = self.edits.len();
         format!(
-            "Qwen3 CPU, {} layers, {} weights, {} edited output rows",
+            "Qwen3 CPU, {} layers, {} weights, {} edited output rows{}",
             self.base.layers.len(),
             self.parameter_count(),
-            self.head.as_ref().map_or(0, |h| h.tokens.len())
+            self.head.as_ref().map_or(0, |h| h.tokens.len()),
+            if edits > 0 {
+                format!(", {edits} edited writer tensors")
+            } else {
+                String::new()
+            }
         )
     }
     pub fn width(&self) -> usize {
@@ -336,6 +358,12 @@ impl Model {
     }
     pub fn identity(&self) -> &str {
         &self.base.identity
+    }
+    pub fn weights_path(&self) -> &Path {
+        &self.base.source
+    }
+    pub fn edited_parts(&self) -> &[String] {
+        &self.edits
     }
     pub fn encode(&self, prompt: &str) -> Result<Vec<u32>> {
         let text = format!(
@@ -377,6 +405,35 @@ impl Model {
         }
     }
     pub fn forward(&self, ids: &[u32]) -> Result<(Vec<f64>, Vec<f64>)> {
+        let (h, logits, _, _) = self.forward_trace(ids, &[], &[])?;
+        Ok((h, logits))
+    }
+
+    /// Final-position hidden state, logits, and per-layer traces. Layer entries
+    /// carry the residual stream after that block, before the final norm;
+    /// attention entries carry the last query position's probabilities flattened
+    /// as heads by sequence position. `layers` and `attn` are layer indices in
+    /// any order; each is reported at most once, in the requested order.
+    pub fn forward_trace(
+        &self,
+        ids: &[u32],
+        layers: &[usize],
+        attn: &[usize],
+    ) -> Result<(Vec<f64>, Vec<f64>, TraceList, TraceList)> {
+        let want = |list: &[usize]| -> Result<Vec<usize>> {
+            let mut sorted = list.to_vec();
+            sorted.sort_unstable();
+            sorted.dedup();
+            if sorted.last().is_some_and(|l| *l >= self.base.layers.len()) {
+                return Err(format!(
+                    "layer index out of range; this model has {} layers",
+                    self.base.layers.len()
+                ));
+            }
+            Ok(sorted)
+        };
+        let want_layers = want(layers)?;
+        let want_attn = want(attn)?;
         if ids.is_empty()
             || ids.len() > self.context()
             || ids.iter().any(|&t| t as usize >= self.vocab())
@@ -386,7 +443,8 @@ impl Model {
         self.base
             .pool
             .install(|| {
-                let (h, logits) = self.base.forward(ids)?;
+                let (h, logits, layer_states, attn_probs) =
+                    self.base.forward_ex(ids, &want_layers, &want_attn)?;
                 let mut logits = logits.flatten_all()?.to_vec1::<f32>()?;
                 if let Some(head) = &self.head {
                     let weights = Tensor::from_vec(
@@ -403,9 +461,36 @@ impl Model {
                 if hidden.iter().chain(&logits).any(|x| !x.is_finite()) {
                     candle_core::bail!("native inference produced non-finite values");
                 }
+                let collect =
+                    |list: &[(usize, Tensor)]| -> candle_core::Result<Vec<(usize, Vec<f64>)>> {
+                        list.iter()
+                            .map(|(i, t)| {
+                                Ok((
+                                    *i,
+                                    t.flatten_all()?
+                                        .to_vec1::<f32>()?
+                                        .into_iter()
+                                        .map(f64::from)
+                                        .collect(),
+                                ))
+                            })
+                            .collect()
+                    };
+                let layer_states = collect(&layer_states)?;
+                let attn_probs = collect(&attn_probs)?;
+                if layer_states
+                    .iter()
+                    .chain(&attn_probs)
+                    .flat_map(|(_, v)| v.iter())
+                    .any(|x| !x.is_finite())
+                {
+                    candle_core::bail!("native inference produced non-finite values");
+                }
                 Ok((
                     hidden.into_iter().map(f64::from).collect(),
                     logits.into_iter().map(f64::from).collect(),
+                    layer_states,
+                    attn_probs,
                 ))
             })
             .map_err(|e: candle_core::Error| e.to_string())
@@ -489,10 +574,113 @@ impl Model {
         });
         Ok(result)
     }
+
+    /// Replace writer tensors (the matrices whose columns write into the
+    /// residual stream, and the other layer projections) with edited versions.
+    /// `parts` must come from `read_weights` on this same model so the binding
+    /// is provenance-checked; tensors are rounded to the checkpoint's stored
+    /// dtype before use.
+    pub fn with_writers(&self, parts: &NetData) -> Result<Self> {
+        let bound = parts
+            .meta
+            .get("model_identity")
+            .and_then(|v| v.as_str())
+            .ok_or("writer parts carry no model binding; read them with read_weights")?;
+        if bound != self.base.identity {
+            return Err(
+                "writer parts belong to a different checkpoint, config, or tokenizer".into(),
+            );
+        }
+        let c = &self.base.config;
+        let d = c.hidden_size;
+        let q = c.num_attention_heads * c.head_dim;
+        let kv = c.num_key_value_heads * c.head_dim;
+        let ff = c.intermediate_size;
+        let mut base = (*self.base.clone()).clone();
+        let mut applied: Vec<String> = Vec::new();
+        for (name, part) in &parts.parts {
+            let rest = name
+                .strip_prefix("L[")
+                .and_then(|s| s.split_once(']'))
+                .ok_or_else(|| format!("writer part `{name}` is not a layer tensor"))?;
+            let layer: usize = rest
+                .0
+                .parse()
+                .map_err(|_| format!("bad layer in `{name}`"))?;
+            let field = match rest.1 {
+                ".mlp.down" => (0, d, ff),
+                ".mlp.gate" => (0, ff, d),
+                ".mlp.up" => (0, ff, d),
+                ".attn.q" => (0, q, d),
+                ".attn.k" => (0, kv, d),
+                ".attn.v" => (0, kv, d),
+                ".attn.o" => (0, d, q),
+                other => {
+                    return Err(format!(
+                        "writer part `{name}` is not a supported layer projection ({other})"
+                    ))
+                }
+            };
+            if layer >= self.base.layers.len() {
+                return Err(format!("writer part `{name}` is outside the model"));
+            }
+            let expected = [field.1, field.2];
+            if part.shape != expected {
+                return Err(format!(
+                    "writer part `{name}` must be {} by {}, got {} by {}",
+                    expected[0],
+                    expected[1],
+                    part.shape.first().copied().unwrap_or(0),
+                    part.shape.get(1).copied().unwrap_or(0)
+                ));
+            }
+            if part.dtype != self.base.dtype {
+                return Err(format!(
+                    "writer part `{name}` must stay in the checkpoint's stored dtype"
+                ));
+            }
+            if part.data.iter().any(|v| !v.is_finite()) {
+                return Err(format!("writer part `{name}` contains non-finite values"));
+            }
+            let tensor = Tensor::from_vec(
+                part.data
+                    .iter()
+                    .map(|&v| part.dtype.round(v) as f32)
+                    .collect(),
+                (expected[0], expected[1]),
+                &Device::Cpu,
+            )
+            .map_err(|e| e.to_string())?;
+            let target = &mut base.layers[layer];
+            match rest.1 {
+                ".mlp.down" => target.down = tensor,
+                ".mlp.gate" => target.gate = tensor,
+                ".mlp.up" => target.up = tensor,
+                ".attn.q" => target.q = tensor,
+                ".attn.k" => target.k = tensor,
+                ".attn.v" => target.v = tensor,
+                _ => target.o = tensor,
+            }
+            applied.push(name.clone());
+        }
+        if applied.is_empty() {
+            return Err("writer parts contain no layer tensors".into());
+        }
+        Ok(Self {
+            base: Arc::new(base),
+            head: self.head.clone(),
+            edits: applied,
+        })
+    }
 }
 
 impl Decoder {
-    fn forward(&self, ids: &[u32]) -> candle_core::Result<(Tensor, Tensor)> {
+    fn forward_ex(
+        &self,
+        ids: &[u32],
+        want_layers: &[usize],
+        want_attn: &[usize],
+    ) -> candle_core::Result<(Tensor, Tensor, TensorTrace, TensorTrace)> {
         let c = &self.config;
         let s = ids.len();
         let ids = Tensor::new(ids, &Device::Cpu)?;
@@ -509,7 +697,9 @@ impl Decoder {
             .collect();
         let mask = Tensor::from_vec(mask, (1, 1, s, s), &Device::Cpu)?;
         let eps = c.rms_norm_eps as f32;
-        for l in &self.layers {
+        let mut layer_states = Vec::new();
+        let mut attn_probs = Vec::new();
+        for (li, l) in self.layers.iter().enumerate() {
             let z = ops::rms_norm(&x, &l.input_norm, eps)?;
             let q = z
                 .matmul(&l.q.t()?)?
@@ -549,7 +739,13 @@ impl Decoder {
                 .matmul(&k.t()?)?
                 .affine(1.0 / (c.head_dim as f64).sqrt(), 0.0)?
                 .broadcast_add(&mask)?;
-            let context = ops::softmax_last_dim(&scores)?
+            let probs = ops::softmax_last_dim(&scores)?;
+            if want_attn.binary_search(&li).is_ok() {
+                // Last query position's distribution over inputs, heads by position.
+                let last = probs.narrow(2, s - 1, 1)?.contiguous()?;
+                attn_probs.push((li, last.reshape((1, c.num_attention_heads * s))?));
+            }
+            let context = probs
                 .matmul(&v)?
                 .transpose(1, 2)?
                 .reshape((s, c.num_attention_heads * c.head_dim))?;
@@ -557,9 +753,13 @@ impl Decoder {
             let z = ops::rms_norm(&x, &l.post_norm, eps)?;
             let gated = (ops::silu(&z.matmul(&l.gate.t()?)?)? * z.matmul(&l.up.t()?)?)?;
             x = (x + gated.matmul(&l.down.t()?)?)?;
+            if want_layers.binary_search(&li).is_ok() {
+                let last = x.narrow(0, s - 1, 1)?.contiguous()?;
+                layer_states.push((li, last));
+            }
         }
         let h = ops::rms_norm(&x.narrow(0, s - 1, 1)?.contiguous()?, &self.norm, eps)?;
         let logits = h.matmul(&self.output.t()?)?;
-        Ok((h, logits))
+        Ok((h, logits, layer_states, attn_probs))
     }
 }

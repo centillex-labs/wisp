@@ -43,9 +43,15 @@ fn inputs(it: &Interp, v: &Value, span: Span) -> R<ObservationData> {
 }
 fn charge(it: &mut Interp, name: &str, cost: u64, data: &ObservationData, span: Span) -> R<()> {
     let loc = it.loc(span);
-    it.harness
-        .observe(name, cost, &loc, data)
-        .map_err(|m| err("E-BUDGET", m, span))
+    match it.harness.observe(name, cost, &loc, data) {
+        Ok(()) => Ok(()),
+        Err(crate::harness::ObserveError::HeldOut) => Err(err(
+            "E-HELDOUT",
+            "held-out data may only be observed by score; declare a separate fitting set",
+            span,
+        )),
+        Err(crate::harness::ObserveError::Budget(m)) => Err(err("E-BUDGET", m, span)),
+    }
 }
 fn sequences(c: &TCfg, value: &Value, span: Span) -> R<Vec<Vec<usize>>> {
     let Value::Cell(items) = value else {

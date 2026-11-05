@@ -9,10 +9,10 @@ y = mod((0..rows(R)-1)', 2);  // false/true pairs, fixed by the case generator
 z = mod((0..rows(G)-1)', 2);
 
 before = run(base, 'repair');
-[_, predicted] = max(before, [], 1);
+[_, predicted] = max(before, [], 2);
 assert(any(predicted != y)); // reproduce a real failure, not a made-up repair
 before_reg = run(base, 'regression');
-[_, predicted_reg] = max(before_reg, [], 1);
+[_, predicted_reg] = max(before_reg, [], 2);
 assert(all(predicted_reg == z));
 
 // Edit only the two declared output-token rows. A sparse 128-coordinate attempt
@@ -41,11 +41,11 @@ wsave(candidate, 'head_candidate.safetensors', 'budget', 1, ...
       'preserve', 'integer comparison decisions; fixed regression logit margins');
 stored = wload('head_candidate.safetensors');
 after = run(stored, 'repair');
-[_, repaired] = max(after, [], 1);
+[_, repaired] = max(after, [], 2);
 assert(all(repaired == y));
 assert(all((2*y-1).*(after[:,1]-after[:,0]) >= 0.25));
 after_reg = run(stored, 'regression');
-[_, preserved] = max(after_reg, [], 1);
+[_, preserved] = max(after_reg, [], 2);
 assert(all(preserved == z));
 regression_drift = max(abs((after_reg[:,1]-after_reg[:,0]) - (before_reg[:,1]-before_reg[:,0])));
 fprintf('maximum regression margin drift: %.6g\n', regression_drift);

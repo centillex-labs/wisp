@@ -143,3 +143,60 @@ fn native_observations_obey_budget_and_reject_unsupported_requests() {
         .join("not-a-full-checkpoint.safetensors")
         .exists());
 }
+
+#[test]
+fn capture_layers_attn_score_and_writer_edits_work_from_the_language() {
+    let fixture = Fixture::new();
+    let source = format!(
+        "budget(6); {LOAD}
+captured = capture(m, {{'a b'}}, 'layers', [0, 1]);
+assert(rows(captured.layers) == 2); assert(cols(captured.layers) == cols(captured.hidden));
+assert(captured.layer_ids[0] == 0); assert(captured.layer_ids[1] == 1);
+attended = capture(m, {{'a b'}}, 'attn', [0]);
+assert(rows(attended.attn) == 1); assert(numel(attended.attn[0, :]) > 0);
+assert(sum(attended.attn[0, :]) > 0);
+parts = read_weights(m, {{'model.layers.0.mlp.down_proj.weight'}});
+assert(parts.model_identity == m.identity);
+D = parts.('L[0].mlp.down');
+D[:, 0] = D[:, 0] .* 2;
+edited = with_writers(m, parts);
+assert(numel(edited.edited_parts) == 1);
+before = run(m, {{'a b'}});
+after = run(edited, {{'a b'}});
+assert(~isequal(before, after));
+fitset = dataset('fit', {{'a b'}});
+heldout = dataset('hold', {{'a b'}}, 'heldout', true);
+grader = @(s) count(s, '3');
+result = score(m, 'hold', 4, grader);
+assert(numel(result.scores) == 1);
+assert(result.mean == result.scores[0]);
+disp('capture-score-writers OK');",
+    );
+    let o = fixture.run(&source, &[]);
+    assert!(o.status.success(), "{}", output(&o));
+    assert!(output(&o).contains("capture-score-writers OK"));
+    // Held-out data must be rejected by fit-purpose calls.
+    let rejected = fixture.run(
+        &format!(
+            "budget(1); {LOAD} dataset('hold', {{'a b'}}, 'heldout', true); capture(m, 'hold');"
+        ),
+        &[],
+    );
+    assert!(!rejected.status.success());
+    assert!(
+        output(&rejected).contains("E-HELDOUT"),
+        "{}",
+        output(&rejected)
+    );
+    let rejected = fixture.run(
+        &format!(
+            "budget(1); {LOAD} dataset('hold', {{'a b'}}, 'heldout', true); gen(m, 'hold', 2);"
+        ),
+        &[],
+    );
+    assert!(
+        output(&rejected).contains("E-HELDOUT"),
+        "{}",
+        output(&rejected)
+    );
+}

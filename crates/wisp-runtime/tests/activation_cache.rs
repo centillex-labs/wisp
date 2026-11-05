@@ -156,7 +156,9 @@ fn trusted_cache_is_charged_and_keeps_observation_provenance() {
         };
         assert_eq!(a.tag, Tag::Act);
     }
-    it.harness.register_dataset("alias", array()).unwrap();
+    it.harness
+        .register_dataset("alias", array(), false)
+        .unwrap();
     let data = it.harness.resolve_data(&Value::str("alias")).unwrap();
     assert_eq!(
         it.harness.require_fresh(&data).unwrap_err().0,
@@ -167,7 +169,7 @@ fn trusted_cache_is_charged_and_keeps_observation_provenance() {
 #[test]
 fn cache_authorization_hidden_data_and_budget_are_enforced() {
     let mut it = interp(2);
-    it.harness.register_dataset("raw", array()).unwrap();
+    it.harness.register_dataset("raw", array(), false).unwrap();
     assert_eq!(
         run(&mut it, "H = activations('raw');").err().unwrap().code,
         "E-FORBIDDEN"

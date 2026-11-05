@@ -65,7 +65,7 @@ assert(norm(candidate.W1-base.W1)/norm(base.W1) <= 0.5);
 wsave(candidate, 'head_candidate.safetensors', 'budget', 1);
 stored = wload('head_candidate.safetensors');
 after = run(stored, 'repair');
-[_, repaired] = max(after, [], 1);
+[_, repaired] = max(after, [], 2);
 assert(all(repaired == y));
 assert(all((2*y-1).*(after[:,1]-after[:,0]) >= 0.25));
 ```
@@ -75,7 +75,7 @@ assert(all((2*y-1).*(after[:,1]-after[:,0]) >= 0.25));
 ```wisp
 function scores = accuracy(model, items)
     Y = run(model, items);
-    [_, predicted] = max(Y, [], 1);
+    [_, predicted] = max(Y, [], 2);
     expected = mod((0..rows(Y)-1)', 2);
     scores = predicted == expected;
 end

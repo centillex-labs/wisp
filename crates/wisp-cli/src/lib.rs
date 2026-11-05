@@ -1,6 +1,6 @@
 //! `wisp`: execute programs and validate syntax.
 
-use std::io::BufRead;
+use std::io::{BufRead, Write as IoWrite};
 use std::process::ExitCode;
 use std::rc::Rc;
 use wisp_runtime::value::Value;
@@ -150,18 +150,39 @@ fn cmd_test(args: &[String]) -> Result<(), String> {
 /// chunk and `exit` or end of input ends the session. Parse and runtime errors
 /// are reported and do not end the session.
 fn cmd_kernel(args: &[String]) -> Result<(), String> {
-    const HELP: &str = "usage: wisp kernel <setup.wisp> [--log FILE]\n\nRuns the setup program once, then evaluates statements from stdin against the\nsame interpreter, environment, and observation budget. End each chunk with a\nblank line; send `exit` or end of input to stop. One JSON line per chunk.\n";
+    const HELP: &str = "usage: wisp kernel <setup.wisp> [--log FILE] [--transcript FILE] [--resume FILE]\n\nRuns the setup program once, then evaluates statements from stdin against the\nsame interpreter, environment, and observation budget. End each chunk with a\nblank line; send `exit` or end of input to stop. One JSON line per chunk.\n--transcript records every chunk and response as JSON lines. --resume replays\na transcript's chunks against a fresh session before reading stdin; chunks are\nre-executed, so replay requires deterministic programs.\n";
     if matches!(args, [flag] if flag == "--help" || flag == "-h") {
         print!("{HELP}");
         return Ok(());
     }
-    let (path, log) = match args {
-        [path] if !path.starts_with('-') => (path, None),
-        [path, flag, file] if !path.starts_with('-') && flag == "--log" => {
-            (path, Some(file.clone()))
+    let (path, log, transcript, resume) = {
+        let mut values = (None, None, None, None);
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "--log" => values.1 = args.get(i + 1).cloned(),
+                "--transcript" => values.2 = args.get(i + 1).cloned(),
+                "--resume" => values.3 = args.get(i + 1).cloned(),
+                other if !other.starts_with('-') && values.0.is_none() => {
+                    values.0 = Some(other.to_string())
+                }
+                _ => return Err(HELP.into()),
+            }
+            if matches!(args[i].as_str(), "--log" | "--transcript" | "--resume") {
+                if args.get(i + 1).is_none() {
+                    return Err(HELP.into());
+                }
+                i += 2;
+            } else {
+                i += 1;
+            }
         }
-        _ => return Err(HELP.into()),
+        if values.0.is_none() {
+            return Err(HELP.into());
+        }
+        values
     };
+    let path = path.as_deref().ok_or_else(|| HELP.to_string())?;
     let src = read(path)?;
     let program = wisp_syntax::parse(&src).map_err(|d| d.render(path, &src))?;
     let mut it = Interp::new(path, &src);
@@ -173,6 +194,21 @@ fn cmd_kernel(args: &[String]) -> Result<(), String> {
     let mut env = wisp_runtime::interp::Env::new();
     it.eval_program(&mut env, &program)
         .map_err(|d| d.render(path, &src))?;
+    let mut transcript = transcript
+        .map(|file| {
+            let new = !std::path::Path::new(&file).exists();
+            let f = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&file)
+                .map_err(|e| format!("{file}: {e}"))?;
+            if new {
+                let record = serde_json::json!({"event": "setup", "source": src});
+                writeln!(&f, "{record}").map_err(|e| format!("{file}: {e}"))?;
+            }
+            Ok::<std::fs::File, String>(f)
+        })
+        .transpose()?;
     let status = |it: &mut Interp, ok: bool, extra: serde_json::Value| {
         let remaining = it.harness.passes.map(|p| p.saturating_sub(it.harness.used));
         let mut value = serde_json::json!({
@@ -195,9 +231,91 @@ fn cmd_kernel(args: &[String]) -> Result<(), String> {
         let _ = std::io::stdout().flush();
     };
     status(&mut it, true, serde_json::json!({"event": "ready"}));
+    let replay = resume
+        .map(|file| -> Result<Vec<String>, String> {
+            let text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
+            let mut chunks = Vec::new();
+            for line in text.lines() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let record: serde_json::Value =
+                    serde_json::from_str(line).map_err(|e| format!("{file}: {e}"))?;
+                match record.get("event").and_then(|e| e.as_str()) {
+                    Some("setup") => {
+                        if record.get("source").and_then(|s| s.as_str()) != Some(src.as_str()) {
+                            return Err(format!(
+                            "{file}: the transcript was recorded against a different setup program"
+                        ));
+                        }
+                    }
+                    Some("chunk") => {
+                        if let Some(text) = record.get("chunk").and_then(|c| c.as_str()) {
+                            chunks.push(text.to_string());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Ok(chunks)
+        })
+        .transpose()?;
+    let mut evaluate = |it: &mut Interp, snippet: &str| -> serde_json::Value {
+        it.out.clear();
+        let mut value = match wisp_syntax::parse(snippet) {
+            Err(d) => serde_json::json!({
+                "ok": false,
+                "error": d.render("<stdin>", snippet),
+            }),
+            Ok(program) => match it.eval_program(&mut env, &program) {
+                Ok(()) => serde_json::json!({"ok": true}),
+                Err(d) => serde_json::json!({
+                    "ok": false,
+                    "error": d.render("<stdin>", snippet),
+                }),
+            },
+        };
+        let remaining = it.harness.passes.map(|p| p.saturating_sub(it.harness.used));
+        let map = value.as_object_mut().unwrap();
+        map.insert("budget_used".into(), it.harness.used.into());
+        map.insert("budget_remaining".into(), remaining.into());
+        map.insert("output".into(), it.out.clone().into());
+        value
+    };
+    if let Some(chunks) = replay {
+        for snippet in chunks {
+            let response = evaluate(&mut it, &snippet);
+            if response["ok"].as_bool() != Some(true) {
+                return Err(format!(
+                    "--resume: a replayed chunk failed:\n{}",
+                    response["error"].as_str().unwrap_or_default()
+                ));
+            }
+        }
+    }
     let mut chunk = String::new();
     for line in std::io::stdin().lock().lines() {
         let line = line.map_err(|e| format!("stdin: {e}"))?;
+        if line.trim().is_empty() {
+            if chunk.is_empty() {
+                continue;
+            }
+        } else if line.trim() == "exit" {
+            // Flush any pending chunk so a final statement without a trailing
+            // blank line is not silently discarded.
+            if !chunk.is_empty() {
+                let text = std::mem::take(&mut chunk);
+                let response = evaluate(&mut it, text.as_str());
+                if let Some(f) = transcript.as_mut() {
+                    let record =
+                        serde_json::json!({"event": "chunk", "chunk": text, "response": response});
+                    let _ = writeln!(f, "{record}");
+                }
+                let ok = response["ok"].as_bool() == Some(true);
+                status(&mut it, ok, response);
+            }
+            break;
+        }
         if line.trim().is_empty() {
             if chunk.is_empty() {
                 continue;
@@ -207,22 +325,16 @@ fn cmd_kernel(args: &[String]) -> Result<(), String> {
             }
             let text = std::mem::take(&mut chunk);
             let snippet = text.as_str();
-            it.out.clear();
-            match wisp_syntax::parse(snippet) {
-                Err(d) => status(
-                    &mut it,
-                    false,
-                    serde_json::json!({"error": d.render("<stdin>", snippet)}),
-                ),
-                Ok(program) => match it.eval_program(&mut env, &program) {
-                    Ok(()) => status(&mut it, true, serde_json::json!({})),
-                    Err(d) => status(
-                        &mut it,
-                        false,
-                        serde_json::json!({"error": d.render("<stdin>", snippet)}),
-                    ),
-                },
+            let response = evaluate(&mut it, snippet);
+            if let Some(f) = transcript.as_mut() {
+                let record =
+                    serde_json::json!({"event": "chunk", "chunk": text, "response": response});
+                if let Err(e) = writeln!(f, "{record}") {
+                    return Err(format!("{e}"));
+                }
             }
+            let ok = response["ok"].as_bool() == Some(true);
+            status(&mut it, ok, response);
         } else {
             chunk.push_str(&line);
             chunk.push('\n');
@@ -335,7 +447,7 @@ fn configure_task(it: &mut Interp, task_path: &str) -> Result<(), String> {
         };
         for (name, value) in data.iter() {
             it.harness
-                .register_dataset(name, value.clone())
+                .register_dataset(name, value.clone(), false)
                 .map_err(|m| format!("{task_path}: {m}"))?;
         }
     }

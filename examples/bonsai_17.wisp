@@ -5,7 +5,7 @@
 function changed = rebalance_blocks(D, block_size, k)
     assert(mod(numel(D), block_size) == 0);
     assert(mod(cols(D), block_size) == 0);
-    positive_counts = sum(reshape(D > 0, numel(D)/block_size, block_size), 1);
+    positive_counts = sum(reshape(D > 0, numel(D)/block_size, block_size), 2);
     [counts, blocks] = maxk(positive_counts, k);
     changed = 0;
     for block_id = blocks
