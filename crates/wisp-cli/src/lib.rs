@@ -1,5 +1,6 @@
 //! `wisp`: execute programs and validate syntax.
 
+use std::io::BufRead;
 use std::process::ExitCode;
 use std::rc::Rc;
 use wisp_runtime::value::Value;
@@ -12,6 +13,7 @@ usage:
   wisp <program.wisp> [--budget N] [--log FILE]
   wisp <program.wisp> --check
   wisp test <program.wisp> [--budget N]
+  wisp kernel <setup.wisp> [--log FILE]
 
 options:
   --check       validate syntax without executing the program
@@ -30,6 +32,7 @@ pub fn main_cli() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Some("test") => cmd_test(&args[1..]),
+        Some("kernel") => cmd_kernel(&args[1..]),
         Some("run") => cmd_run(&args[1..]),
         Some("jit") => cmd_jit(&args[1..]),
         Some("check") => cmd_check(&args[1..]),
@@ -140,6 +143,93 @@ fn cmd_test(args: &[String]) -> Result<(), String> {
     } else {
         Ok(())
     }
+}
+
+/// Persistent statement session: one setup program, one environment, one budget.
+/// Each submitted chunk is answered with a single JSON line; a blank line ends a
+/// chunk and `exit` or end of input ends the session. Parse and runtime errors
+/// are reported and do not end the session.
+fn cmd_kernel(args: &[String]) -> Result<(), String> {
+    const HELP: &str = "usage: wisp kernel <setup.wisp> [--log FILE]\n\nRuns the setup program once, then evaluates statements from stdin against the\nsame interpreter, environment, and observation budget. End each chunk with a\nblank line; send `exit` or end of input to stop. One JSON line per chunk.\n";
+    if matches!(args, [flag] if flag == "--help" || flag == "-h") {
+        print!("{HELP}");
+        return Ok(());
+    }
+    let (path, log) = match args {
+        [path] if !path.starts_with('-') => (path, None),
+        [path, flag, file] if !path.starts_with('-') && flag == "--log" => {
+            (path, Some(file.clone()))
+        }
+        _ => return Err(HELP.into()),
+    };
+    let src = read(path)?;
+    let program = wisp_syntax::parse(&src).map_err(|d| d.render(path, &src))?;
+    let mut it = Interp::new(path, &src);
+    it.echo = false;
+    if let Some(l) = log {
+        let _ = std::fs::remove_file(&l);
+        it.harness.log_path = Some(l);
+    }
+    let mut env = wisp_runtime::interp::Env::new();
+    it.eval_program(&mut env, &program)
+        .map_err(|d| d.render(path, &src))?;
+    let status = |it: &mut Interp, ok: bool, extra: serde_json::Value| {
+        let remaining = it.harness.passes.map(|p| p.saturating_sub(it.harness.used));
+        let mut value = serde_json::json!({
+            "ok": ok,
+            "budget_used": it.harness.used,
+            "budget_remaining": remaining,
+            "output": it.out,
+        });
+        if let Some(map) = value.as_object_mut() {
+            if let serde_json::Value::Object(fields) = extra {
+                for (k, v) in fields {
+                    if k != "output" {
+                        map.insert(k, v);
+                    }
+                }
+            }
+        }
+        println!("{value}");
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
+    };
+    status(&mut it, true, serde_json::json!({"event": "ready"}));
+    let mut chunk = String::new();
+    for line in std::io::stdin().lock().lines() {
+        let line = line.map_err(|e| format!("stdin: {e}"))?;
+        if line.trim().is_empty() {
+            if chunk.is_empty() {
+                continue;
+            }
+            if chunk.trim() == "exit" {
+                break;
+            }
+            let text = std::mem::take(&mut chunk);
+            let snippet = text.as_str();
+            it.out.clear();
+            match wisp_syntax::parse(snippet) {
+                Err(d) => status(
+                    &mut it,
+                    false,
+                    serde_json::json!({"error": d.render("<stdin>", snippet)}),
+                ),
+                Ok(program) => match it.eval_program(&mut env, &program) {
+                    Ok(()) => status(&mut it, true, serde_json::json!({})),
+                    Err(d) => status(
+                        &mut it,
+                        false,
+                        serde_json::json!({"error": d.render("<stdin>", snippet)}),
+                    ),
+                },
+            }
+        } else {
+            chunk.push_str(&line);
+            chunk.push('\n');
+        }
+    }
+    status(&mut it, true, serde_json::json!({"event": "exit"}));
+    Ok(())
 }
 
 fn cmd_check(args: &[String]) -> Result<(), String> {

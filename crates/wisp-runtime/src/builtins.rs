@@ -74,6 +74,7 @@ pub const NAMES: &[&str] = &[
     "startsWith",
     "strcat",
     "getenv",
+    "isfile",
     "hf_download",
     "hf_model",
     "capture",
@@ -1275,6 +1276,13 @@ pub fn call(
             let value =
                 crate::hf::environment(&name, &fallback).map_err(|m| err("E-ENV", m, span))?;
             one(Value::str(value))
+        }
+        "isfile" => {
+            if a.len() != 1 {
+                return Err(err("E-ARGS", "isfile needs exactly one path string", span));
+            }
+            let path = string(&a[0], span, "the path")?;
+            one(Value::boolean(std::path::Path::new(&path).is_file()))
         }
         "hf_model" | "capture" | "token_head" | "with_head" => {
             crate::decoder_api::call(it, name, a, span)

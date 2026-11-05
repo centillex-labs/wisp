@@ -103,6 +103,33 @@ assert(changed == 8);
 
 This test checks weight structure, not model behavior. [Results](docs/bonsai-17.md).
 
+### Probe a refusal path baseline
+
+Does a 1.7B model refuse clearly illegal requests consistently enough to trace?
+[Recorded result](docs/bonsai-refusal.md): it refused 3 of 6, with hidden norms
+that separate nothing. A supervised output-row repair then made all six refuse;
+it fits two cases and proves nothing beyond them.
+
+[Probe](examples/bonsai_refusal_probe.wisp) and
+[repair](examples/bonsai_refusal_repair.wisp) never edit the decoder or input
+embeddings.
+
+[Probe program](examples/bonsai_refusal_probe.wisp) observes and generates only;
+it never edits weights.
+
+## Kernel mode
+
+For an agent to reason about weights iteratively, Wisp has a persistent session:
+
+```bash
+wisp kernel setup.wisp --log observations.jsonl
+```
+
+The setup program loads a pinned model and sets the budget once. Submitted
+statements then share one environment and one observation budget, with one JSON
+response per chunk and a captured-output field. Errors do not end the session.
+[Protocol and a recorded session](docs/kernel.md).
+
 ## Original Weight-Space Programming research
 
 [Sparks of Weight-Space Programming](https://rikiyat.github.io/blog/weight-space-programming/)

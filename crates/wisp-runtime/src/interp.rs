@@ -137,6 +137,14 @@ impl Interp {
         }
     }
 
+    /// Run already-parsed statements against an existing environment.
+    /// Used by the kernel, which keeps one environment and budget across calls.
+    pub fn eval_program(&mut self, env: &mut Env, prog: &Program) -> R<()> {
+        self.load_functions(prog);
+        self.block(env, &prog.body)?;
+        Ok(())
+    }
+
     /// Run a whole program; returns the final variables.
     pub fn run(&mut self, prog: &Program) -> R<Env> {
         self.load_functions(prog);
