@@ -130,6 +130,15 @@ statements then share one environment and one observation budget, with one JSON
 response per chunk and a captured-output field. Errors do not end the session.
 [Protocol and a recorded session](docs/kernel.md).
 
+## Native convolutional OCR
+
+The OpenThai2.0 line recognizer can run directly in Wisp's interpreter/kernel
+using its current, editable weights. `run(model, input)` returns probabilities;
+`[probabilities, states] = run(model, input)` also captures intermediate tensors
+within the same observation pass. The forward path is native Rust CPU FP32,
+without Python, ONNX Runtime, or subprocess inference.
+[Export format, API, limits, and validation](docs/openthai2-ocr.md).
+
 ## Original Weight-Space Programming research
 
 [Sparks of Weight-Space Programming](https://rikiyat.github.io/blog/weight-space-programming/)

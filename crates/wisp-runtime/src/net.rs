@@ -96,6 +96,7 @@ pub enum Arch {
         acts: Vec<String>,
     },
     Transformer(TCfg),
+    OpenThai2(crate::ocr::Graph),
     Unknown,
 }
 

@@ -1897,6 +1897,19 @@ pub fn call(
                 }
             }
             let nb = n.borrow();
+            if let Arch::OpenThai2(graph) = &nb.arch {
+                if a.len() != 2 || nargout > 2 {
+                    return Err(err("E-ARGS", "OCR run takes (model, NCHW input) and returns probabilities and optional states", span));
+                }
+                let input = arr(it, &data.value, span)?;
+                let (output, states) = crate::ocr::forward(&nb, graph, &input, nargout == 2)
+                    .map_err(|m| err("E-OCR", m, span))?;
+                let mut result = vec![Value::Arr(output)];
+                if nargout == 2 {
+                    result.push(Value::Struct(Rc::new(states.into_iter().map(|(k,v)| (k,Value::Arr(v))).collect())));
+                }
+                return Ok(result);
+            }
             let out = match (&nb.arch, &data.value) {
                 (Arch::Mlp { sizes, .. }, x) => {
                     let x = arr(it, x, span)?;

@@ -309,6 +309,7 @@ pub fn arch_to_json(a: &Arch) -> J {
             "kind": "transformer", "vocab": c.vocab, "ctx": c.ctx, "layers": c.layers,
             "heads": c.heads, "d": c.d, "ff": c.ff, "head_dim": c.head_dim, "act": c.act
         }),
+        Arch::OpenThai2(g) => json!({"kind": "openthai2_rec", "graph": g}),
         Arch::Unknown => json!({"kind": "unknown"}),
     }
 }
@@ -321,6 +322,12 @@ fn arch_from_json(a: &J) -> Result<Arch, String> {
             .ok_or(format!("sidecar arch is missing `{k}`"))
     };
     match a.get("kind").and_then(|k| k.as_str()) {
+        Some("openthai2_rec") => {
+            let g: crate::ocr::Graph = serde_json::from_value(a["graph"].clone())
+                .map_err(|e| format!("invalid OpenThai2 graph: {e}"))?;
+            g.validate()?;
+            Ok(Arch::OpenThai2(g))
+        }
         Some("mlp") => {
             let sizes = a["sizes"]
                 .as_array()

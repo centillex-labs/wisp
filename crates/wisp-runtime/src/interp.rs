@@ -1582,6 +1582,7 @@ impl NetData {
                 c.ff,
                 c.vocab.len()
             ),
+            crate::net::Arch::OpenThai2(g) => format!("OpenThai2 native CPU FP32 recognizer ({} nodes)", g.nodes.len()),
             crate::net::Arch::Unknown => "unknown architecture".into(),
         };
         format!(

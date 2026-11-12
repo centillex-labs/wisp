@@ -12,6 +12,7 @@ pub mod interp;
 pub mod io;
 pub mod net;
 pub mod observations;
+pub mod ocr;
 pub mod tensor;
 pub mod testing;
 pub mod value;
