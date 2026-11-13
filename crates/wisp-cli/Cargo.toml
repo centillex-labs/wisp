@@ -11,7 +11,12 @@ path = "src/main.rs"
 name = "wispc"
 path = "src/wispc.rs"
 
+[features]
+default = ["python"]
+python = ["dep:wisp-python"]
+
 [dependencies]
+wisp-python = { path = "../wisp-python", optional = true }
 wisp-syntax = { path = "../wisp-syntax" }
 wisp-runtime = { path = "../wisp-runtime" }
 wisp-llvm = { path = "../wisp-llvm" }

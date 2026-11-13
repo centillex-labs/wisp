@@ -117,6 +117,24 @@ embeddings.
 [Probe program](examples/bonsai_refusal_probe.wisp) observes and generates only;
 it never edits weights.
 
+## Embedded Python frontend (experimental)
+
+Wisp embeds RustPython directly: one executable, one process, no separate Python
+installation or worker. Normal builds can run:
+
+```bash
+wisp examples/restricted_python.py
+wisp python-kernel
+```
+
+Python functions and tensor `+`, `@`, and `.T` call Wisp's Rust engine. This initial
+frontend has restricted capabilities and host quotas, but is **not a hard sandbox**:
+it has no per-interpreter heap limit and cannot preempt every native operation.
+Model-editing APIs remain on the existing frontend during migration.
+
+See [supported API, limits, and security model](docs/python-security.md)
+and the [Python example](examples/restricted_python.py).
+
 ## Kernel mode
 
 For an agent to reason about weights iteratively, Wisp has a persistent session:

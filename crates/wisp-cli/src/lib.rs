@@ -14,6 +14,8 @@ usage:
   wisp <program.wisp> --check
   wisp test <program.wisp> [--budget N]
   wisp kernel <setup.wisp> [--log FILE]
+  wisp python <script.py>
+  wisp python-kernel
 
 options:
   --check       validate syntax without executing the program
@@ -23,6 +25,8 @@ options:
 ";
 
 pub mod executable;
+#[cfg(feature = "python")]
+mod python;
 
 pub fn main_cli() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -31,6 +35,13 @@ pub fn main_cli() -> ExitCode {
             print!("{USAGE}");
             return ExitCode::SUCCESS;
         }
+        #[cfg(feature = "python")]
+        Some("python" | "python-kernel") => python::run(&args),
+        #[cfg(not(feature = "python"))]
+        Some("python" | "python-kernel") => Err(
+            "Python frontend requires a build with --features python; see docs/python-security.md"
+                .into(),
+        ),
         Some("test") => cmd_test(&args[1..]),
         Some("kernel") => cmd_kernel(&args[1..]),
         Some("run") => cmd_run(&args[1..]),
@@ -39,6 +50,12 @@ pub fn main_cli() -> ExitCode {
         Some("emit-llvm") => cmd_emit(&args[1..]),
         Some("apply") => cmd_apply(&args[1..]),
         Some("edits2w") => cmd_edits2w(&args[1..]),
+        #[cfg(feature = "python")]
+        Some(path) if path.ends_with(".py") => {
+            let mut python_args = vec!["python".to_owned()];
+            python_args.extend_from_slice(&args);
+            python::run(&python_args)
+        }
         Some(_) => cmd_program(&args),
         None => {
             eprint!("{USAGE}");

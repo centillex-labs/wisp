@@ -1,0 +1,18 @@
+[package]
+name = "wisp-python"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.95"
+license.workspace = true
+
+[dependencies]
+wisp-runtime = { path = "../wisp-runtime" }
+# Do not enable host_env, stdio, threading, importlib, or the general stdlib.
+rustpython-vm = { version = "=0.6.0", default-features = false, features = ["compiler", "gc"] }
+# RustPython 0.6.0 requires the 0.16.5 AST API. Later 0.16.x releases
+# changed both AST APIs and get_size2 traits; pin the whole Ruff family.
+ruff_python_ast = { package = "rustpython-ruff_python_ast", version = "=0.16.5" }
+ruff_python_parser = { package = "rustpython-ruff_python_parser", version = "=0.16.5" }
+ruff_python_trivia = { package = "rustpython-ruff_python_trivia", version = "=0.16.5" }
+ruff_source_file = { package = "rustpython-ruff_source_file", version = "=0.16.5" }
+ruff_text_size = { package = "rustpython-ruff_text_size", version = "=0.16.5" }
