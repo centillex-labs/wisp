@@ -5,6 +5,7 @@ pub mod decoder;
 mod decoder_api;
 mod decoder_weights;
 pub mod forward;
+pub mod gguf;
 pub mod harness;
 pub mod hf;
 pub mod index;

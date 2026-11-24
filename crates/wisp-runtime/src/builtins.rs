@@ -57,6 +57,8 @@ pub const NAMES: &[&str] = &[
     "isequal",
     "logical",
     "double",
+    "single",
+    "bf16",
     "isnan",
     "randn",
     "rand",
@@ -72,6 +74,8 @@ pub const NAMES: &[&str] = &[
     "error",
     "assert",
     "startsWith",
+    "endsWith",
+    "strrep",
     "strcat",
     "getenv",
     "isfile",
@@ -95,6 +99,12 @@ pub const NAMES: &[&str] = &[
     // networks
     "wload",
     "wsave",
+    "gguf_names",
+    "gguf_type",
+    "gguf_size",
+    "gguf_meta",
+    "gguf_read",
+    "gguf_rewrite",
     "mlp",
     "transformer",
     "copy",
@@ -198,6 +208,29 @@ pub(crate) fn opts(args: &[Value], skip: usize, span: Span) -> R<IndexMap<String
         m.insert(k, pair[1].clone());
     }
     Ok(m)
+}
+
+/// Equality for `isequal`: strings by text, cells element by element, everything else as arrays.
+fn values_equal(it: &Interp, a: &Value, b: &Value, span: Span) -> R<bool> {
+    Ok(match (a, b) {
+        (Value::Str(x), Value::Str(y)) => x == y,
+        (Value::Cell(x), Value::Cell(y)) => {
+            if x.len() != y.len() {
+                return Ok(false);
+            }
+            for (p, q) in x.iter().zip(y.iter()) {
+                if !values_equal(it, p, q, span)? {
+                    return Ok(false);
+                }
+            }
+            true
+        }
+        (Value::Str(_), Value::Cell(_)) | (Value::Cell(_), Value::Str(_)) => false,
+        _ => {
+            let (x, y) = (arr(it, a, span)?, arr(it, b, span)?);
+            x.shape == y.shape && x.data == y.data
+        }
+    })
 }
 
 fn one(v: Value) -> R<Vec<Value>> {
@@ -1102,14 +1135,7 @@ pub fn call(
         }
         "isequal" => {
             need(2)?;
-            let eq = match (&a[0], &a[1]) {
-                (Value::Str(x), Value::Str(y)) => x == y,
-                _ => {
-                    let (x, y) = (arr(it, &a[0], span)?, arr(it, &a[1], span)?);
-                    x.shape == y.shape && x.data == y.data
-                }
-            };
-            one(Value::boolean(eq))
+            one(Value::boolean(values_equal(it, &a[0], &a[1], span)?))
         }
         "ind2sub" => {
             need(2)?;
@@ -1177,6 +1203,38 @@ pub fn call(
             one(Value::boolean(
                 string(&a[0], span, "the text")?.starts_with(&string(&a[1], span, "the prefix")?),
             ))
+        }
+        "endsWith" => {
+            need(2)?;
+            one(Value::boolean(
+                string(&a[0], span, "the text")?.ends_with(&string(&a[1], span, "the suffix")?),
+            ))
+        }
+        "strrep" => {
+            need(3)?;
+            let from = string(&a[1], span, "the text to replace")?;
+            if from.is_empty() {
+                return Err(err("E-ARGS", "strrep cannot replace an empty string", span));
+            }
+            one(Value::str(string(&a[0], span, "the text")?.replace(
+                &from,
+                &string(&a[2], span, "the replacement")?,
+            )))
+        }
+        // Round every value to what float32 or bfloat16 can store.
+        "single" | "bf16" => {
+            need(1)?;
+            let mut t = arr(it, &a[0], span)?;
+            let dtype = if name == "single" {
+                net::Dtype::F32
+            } else {
+                net::Dtype::BF16
+            };
+            for v in t.data.iter_mut() {
+                *v = dtype.round(*v);
+            }
+            t.tag = Tag::derived(t.tag);
+            t1(t)
         }
         "strcat" => {
             let mut s = String::new();
@@ -1354,6 +1412,7 @@ pub fn call(
             one(Value::str(path))
         }
         // ------------------------------------------------ networks
+        n if crate::gguf::NAMES.contains(&n) => crate::gguf::call(it, name, a, span),
         "wload" => {
             need(1)?;
             let path = string(&a[0], span, "the file")?;

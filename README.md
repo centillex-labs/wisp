@@ -157,6 +157,20 @@ within the same observation pass. The forward path is native Rust CPU FP32,
 without Python, ONNX Runtime, or subprocess inference.
 [Export format, API, limits, and validation](docs/openthai2-ocr.md).
 
+## GGUF files
+
+Wisp reads GGUF tensors and rewrites a file one tensor at a time, copying every tensor it was
+not asked to change byte for byte. That includes quantization types it cannot decode.
+
+```wisp
+r = gguf_rewrite(src, out, targets, 'Q8_0', @(name) edited(name), 'drop', scales);
+assert(isequal(r.sha256, expected));
+```
+
+[inkling_cybersecurity.wisp](examples/inkling_cybersecurity.wisp) merges a rank-1 LoRA into 49
+tensors of a 17.6 GB Inkling-2-Mini file and checks the output against the SHA-256 of the
+published 21 GB build. [Functions, float32 matching, and limits](docs/gguf.md).
+
 ## Original Weight-Space Programming research
 
 [Sparks of Weight-Space Programming](https://rikiyat.github.io/blog/weight-space-programming/)
